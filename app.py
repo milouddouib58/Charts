@@ -1,206 +1,209 @@
 import streamlit as st
 import pandas as pd
-import plotly.graph_objects as go
 
 # --- إعدادات الصفحة ---
-st.set_page_config(page_title="نظام التقييم التحضيري", layout="wide", page_icon="🎓")
+st.set_page_config(page_title="نظام التقييم الثلاثي", layout="wide", page_icon="📝")
 
-# تفعيل دعم اللغة العربية وتنسيق الاتجاه من اليمين لليسار
+# تنسيق CSS للكتابة من اليمين لليسار وتحسين شكل الأزرار
 st.markdown("""
 <style>
     .main {direction: rtl; text-align: right;}
-    .stTextInput, .stSelectbox, .stNumberInput, .stSlider {direction: rtl; text-align: right;}
-    h1, h2, h3, p, div {text-align: right;}
+    .stRadio, .stSelectbox, .stTextInput, .stNumberInput {direction: rtl; text-align: right;}
+    div[role="radiogroup"] {flex-direction: row-reverse; justify-content: flex-end;}
+    h1, h2, h3, p, div, label {text-align: right;}
+    /* تلوين خيارات التقييم لسهولة التمييز */
+    div[data-testid="stMarkdownContainer"] p {font-size: 16px;}
 </style>
 """, unsafe_allow_html=True)
 
-# --- هيكل البيانات (المحاور والمؤشرات) ---
-# تم استخراج هذه البيانات من النص الذي قدمته
+# --- ثوابت التقييم ---
+# خيارات التقييم الثلاثة
+RATING_OPTIONS = ["غير مكتسب", "في طريق الاكتساب", "مكتسب"]
+
+# تحويل الخيارات اللفظية إلى أرقام للتحليل (0، 1، 2)
+RATING_MAP = {
+    "غير مكتسب": 0,
+    "في طريق الاكتساب": 1,
+    "مكتسب": 2
+}
+
+# عكس القاموس للتقارير
+REVERSE_MAP = {v: k for k, v in RATING_MAP.items()}
+
+# معايير التقييم
 ASSESSMENT_CRITERIA = {
-    "المهارات الأكاديمية": [
-        "القراءة المبكرة (تمييز الأحرف)",
-        "الكتابة التحضيرية (مسك القلم)",
-        "المفاهيم الرياضية (العد والمقارنة)",
-        "المنطق والتصنيف"
+    "اللغة العربية": [
+        "يسمي الحروف الهجائية المدروسة",
+        "يميز صواتياً بين الحروف",
+        "يمسك القلم بطريقة صحيحة",
+        "ينسخ كلمات وجمل بسيطة"
     ],
-    "المهارات التنفيذية": [
-        "الانتباه والتركيز",
-        "الذاكرة العاملة",
-        "التحكم في الاندفاع",
-        "المرونة والتنظيم"
+    "الرياضيات": [
+        "يعد شفوياً إلى 20",
+        "يربط العدد بالمعدود",
+        "يميز الأشكال الهندسية",
+        "يصنف الأشياء حسب خاصية معينة"
     ],
-    "الكفاءة الاجتماعية": [
-        "الوعي الذاتي",
-        "التنظيم الذاتي للمشاعر",
-        "التفاعل مع الأقران",
-        "حل النزاعات"
+    "التربية الإسلامية والمدنية": [
+        "يحفظ قصار السور المقررة",
+        "يلقي التحية ويردها",
+        "يحافظ على نظافة مكانه",
+        "يتعاون مع زملائه"
     ],
-    "الكفاءة اللغوية": [
-        "الوعي الصوتي",
-        "ثراء المفردات",
-        "تركيب الجمل",
-        "القدرة السردية"
-    ],
-    "الاستقلالية": [
-        "العناية الذاتية",
-        "تحمل المسؤولية",
-        "التنظيم وترتيب الأغراض"
+    "التربية العلمية": [
+        "يسمي أعضاء جسم الإنسان",
+        "يميز بين الحواس الخمس",
+        "يعرف الحيوانات الأليفة والمتوحشة",
+        "يدرك تعاقب الليل والنهار"
     ]
 }
 
 # --- إدارة البيانات (Session State) ---
 if 'students' not in st.session_state:
-    st.session_state.students = {} # قاموس لتخزين بيانات الطلاب
+    st.session_state.students = {}
 
-# --- الواجهة الجانبية (القائمة) ---
+# --- القائمة الجانبية ---
 with st.sidebar:
-    st.title("لوحة التحكم ⚙️")
-    menu = st.radio("اختر الإجراء:", ["إضافة تلميذ", "تقييم تلميذ", "التقرير والتحليل"])
-    
+    st.title("القائمة الرئيسية")
+    menu = st.radio("العمليات:", ["تسجيل تلميذ جديد", "دفتر التقييم", "عرض النتائج"], index=1)
     st.markdown("---")
-    st.info("نظام تقييم المرحلة التحضيرية (5-6 سنوات)")
+    st.caption("نظام التقييم بمقياس: مكتسب / في طريق الاكتساب / غير مكتسب")
 
-# --- الصفحة 1: إضافة تلميذ ---
-if menu == "إضافة تلميذ":
-    st.title("📂 إضافة تلميذ جديد")
-    with st.form("add_student_form"):
-        name = st.text_input("اسم التلميذ الرباعي:")
-        age = st.number_input("العمر (سنوات):", min_value=4, max_value=7, value=5)
-        class_name = st.text_input("الفوج/القسم:")
-        submitted = st.form_submit_button("حفظ البيانات")
+# ==========================================
+# 1. صفحة تسجيل تلميذ
+# ==========================================
+if menu == "تسجيل تلميذ جديد":
+    st.header("➕ إضافة تلميذ جديد")
+    with st.form("new_student"):
+        name = st.text_input("اسم التلميذ الثلاثي:")
+        group = st.selectbox("الفوج:", ["التحضيري 1", "التحضيري 2"])
+        submit = st.form_submit_button("حفظ")
         
-        if submitted and name:
+        if submit and name:
             if name not in st.session_state.students:
-                # إنشاء سجل فارغ للطالب
-                st.session_state.students[name] = {
-                    "info": {"age": age, "class": class_name},
-                    "scores": {}
-                }
-                st.success(f"تمت إضافة التلميذ: {name} بنجاح!")
+                st.session_state.students[name] = {"group": group, "evaluations": {}}
+                st.success(f"تم تسجيل التلميذ: {name}")
             else:
-                st.warning("هذا الاسم مسجل مسبقاً!")
+                st.warning("هذا الاسم موجود مسبقاً")
 
-# --- الصفحة 2: تقييم تلميذ ---
-elif menu == "تقييم تلميذ":
-    st.title("📝 تقييم المهارات")
+# ==========================================
+# 2. صفحة التقييم (الواجهة الجديدة)
+# ==========================================
+elif menu == "دفتر التقييم":
+    st.header("📝 تقييم المهارات")
     
-    student_names = list(st.session_state.students.keys())
+    students_list = list(st.session_state.students.keys())
     
-    if not student_names:
-        st.warning("الرجاء إضافة تلاميذ أولاً من القائمة الجانبية.")
+    if not students_list:
+        st.info("قم بإضافة تلاميذ أولاً.")
     else:
-        selected_student = st.selectbox("اختر التلميذ:", student_names)
+        selected_student = st.selectbox("اختر التلميذ:", students_list)
+        st.divider()
         
-        st.write(f"### تقييم الطالب: {selected_student}")
-        st.info("مقياس التقييم: 1 (ضعيف جداً) - 5 (متقن/مستقل)")
+        # استرجاع التقييمات السابقة إن وجدت
+        student_evals = st.session_state.students[selected_student]["evaluations"]
         
-        # نموذج التقييم
-        with st.form("assessment_form"):
-            scores = {}
-            
-            # إنشاء تبويبات لكل محور لترتيب الصفحة
+        with st.form("evaluation_form"):
+            # عرض المواد في تبويبات
             tabs = st.tabs(list(ASSESSMENT_CRITERIA.keys()))
             
-            for i, (domain, skills) in enumerate(ASSESSMENT_CRITERIA.items()):
+            new_evals = {}
+            
+            for i, (subject, skills) in enumerate(ASSESSMENT_CRITERIA.items()):
                 with tabs[i]:
-                    st.subheader(domain)
-                    domain_scores = {}
+                    st.subheader(f"ميدان: {subject}")
+                    subject_scores = {}
                     for skill in skills:
-                        # محاولة استرجاع تقييم سابق إن وجد
-                        current_val = st.session_state.students[selected_student]["scores"].get(domain, {}).get(skill, 3)
-                        val = st.slider(f"{skill}", 1, 5, current_val, key=f"{selected_student}_{skill}")
-                        domain_scores[skill] = val
-                    scores[domain] = domain_scores
+                        # تحديد القيمة الافتراضية (إذا كان مقيماً سابقاً نضع تقييمه، وإلا نبدأ بـ "في طريق الاكتساب")
+                        default_val_index = 1 # الافتراضي: في طريق الاكتساب
+                        if subject in student_evals and skill in student_evals[subject]:
+                            prev_score = student_evals[subject][skill]
+                            # البحث عن الاندكس بناء على القيمة المخزنة
+                            if prev_score == 0: default_val_index = 0
+                            elif prev_score == 2: default_val_index = 2
+                        
+                        # --- هنا التغيير الجوهري: استخدام Radio Buttons ---
+                        val = st.radio(
+                            label=skill,
+                            options=RATING_OPTIONS,
+                            index=default_val_index,
+                            key=f"{selected_student}_{skill}",
+                            horizontal=True # جعل الخيارات أفقية بجانب بعضها
+                        )
+                        subject_scores[skill] = RATING_MAP[val]
+                        st.markdown("---") # خط فاصل خفيف بين كل مهارة
+                    
+                    new_evals[subject] = subject_scores
             
-            save_assessment = st.form_submit_button("حفظ التقييم")
+            save_btn = st.form_submit_button("حفظ التقييم في الدفتر", type="primary")
             
-            if save_assessment:
-                st.session_state.students[selected_student]["scores"] = scores
-                st.success("تم حفظ التقييم بنجاح! انتقل لقسم التقارير لرؤية النتائج.")
+            if save_btn:
+                st.session_state.students[selected_student]["evaluations"] = new_evals
+                st.success(f"تم تحديث تقييم التلميذ {selected_student} بنجاح ✅")
 
-# --- الصفحة 3: التقرير والتحليل ---
-elif menu == "التقرير والتحليل":
-    st.title("📊 التقرير التحليلي الشامل")
+# ==========================================
+# 3. صفحة عرض النتائج والتحليل
+# ==========================================
+elif menu == "عرض النتائج":
+    st.header("📊 تحليل مستوى التلميذ")
     
-    student_names = list(st.session_state.students.keys())
-    if not student_names:
-        st.warning("لا يوجد بيانات لعرضها.")
+    students_list = list(st.session_state.students.keys())
+    if not students_list:
+        st.warning("لا توجد بيانات.")
     else:
-        selected_student = st.selectbox("اختر التلميذ لعرض تقريره:", student_names)
-        student_data = st.session_state.students[selected_student]
+        selected_student = st.selectbox("اختر التلميذ:", students_list)
+        data = st.session_state.students[selected_student]["evaluations"]
         
-        if not student_data["scores"]:
+        if not data:
             st.warning("لم يتم تقييم هذا التلميذ بعد.")
         else:
-            # --- 1. حساب المتوسطات ---
-            scores_data = student_data["scores"]
-            domain_averages = {}
+            # 1. إحصائيات عامة
+            total_skills = 0
+            acquired = 0
+            in_progress = 0
+            not_acquired = 0
             
-            for domain, skills in scores_data.items():
-                avg = sum(skills.values()) / len(skills)
-                domain_averages[domain] = avg
-
-            # --- 2. الرسم البياني (الرادار) ---
-            st.subheader("🕸️ خريطة الكفاءات (Spider Chart)")
-            
-            categories = list(domain_averages.keys())
-            values = list(domain_averages.values())
-            
-            fig = go.Figure()
-            fig.add_trace(go.Scatterpolar(
-                r=values,
-                theta=categories,
-                fill='toself',
-                name=selected_student
-            ))
-            fig.update_layout(
-                polar=dict(
-                    radialaxis=dict(visible=True, range=[0, 5])
-                ),
-                showlegend=False
-            )
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # --- 3. التحليل النصي التفصيلي ---
-            st.subheader("📑 التحليل التفصيلي ونقاط القوة/الضعف")
-            
-            col1, col2 = st.columns(2)
-            
-            strengths = []
-            improvements = []
-            
-            for domain, skills in scores_data.items():
+            for subject, skills in data.items():
                 for skill, score in skills.items():
-                    if score >= 4:
-                        strengths.append(f"{domain}: {skill}")
-                    elif score <= 2:
-                        improvements.append(f"{domain}: {skill}")
+                    total_skills += 1
+                    if score == 2: acquired += 1
+                    elif score == 1: in_progress += 1
+                    else: not_acquired += 1
             
-            with col1:
-                st.success("**🌟 نقاط القوة والتميز:**")
-                if strengths:
-                    for s in strengths: st.write(f"- {s}")
-                else:
-                    st.write("لا توجد نقاط قوة بارزة جداً حالياً.")
-                    
-            with col2:
-                st.error("**🔧 مجالات تحتاج إلى دعم وتطوير:**")
-                if improvements:
-                    for imp in improvements: st.write(f"- {imp}")
-                else:
-                    st.write("مستوى الطالب متوازن وجيد بشكل عام.")
-
-            # --- 4. التوصيات الآلية ---
-            st.markdown("---")
-            st.subheader("💡 التوصيات المقترحة")
+            # عرض بطاقات ملخصة بالأعلى
+            col1, col2, col3 = st.columns(3)
+            col1.metric("✅ مكتسب", f"{acquired}", f"{(acquired/total_skills)*100:.1f}%")
+            col2.metric("⚠️ في طريق الاكتساب", f"{in_progress}", delta_color="off")
+            col3.metric("❌ غير مكتسب", f"{not_acquired}", delta_color="inverse")
             
-            general_avg = sum(values) / len(values)
-            if general_avg >= 4:
-                st.info("الطفل يظهر استعداداً ممتازاً للمدرسة. يُنصح بإدراج أنشطة إثرائية متقدمة.")
-            elif general_avg >= 3:
-                st.warning("الطفل في المسار الصحيح، لكنه يحتاج لتعزيز المهارات التي حصل فيها على تقييم أقل من 3.")
-            else:
-                st.error("يحتاج الطفل إلى خطة تدخل فردية مكثفة، يرجى مراجعة الأخصائي أو تكثيف التمارين المنزلية.")
+            st.divider()
 
-            # زر محاكاة الطباعة
-            st.download_button("تحميل التقرير (PDF - محاكاة)", data="Report Data", file_name=f"report_{selected_student}.txt")
+            # 2. الرسم البياني (بسيط وبدون مكتبات خارجية معقدة)
+            st.subheader("توزيع الكفاءات حسب المواد")
+            
+            chart_data = []
+            for subject, skills in data.items():
+                # نحسب نسبة الاكتساب في كل مادة (مجموع النقاط / المجموع الكلي المحتمل)
+                # مكتسب=2 نقطة، المجموع المحتمل = عدد المهارات * 2
+                points = sum(skills.values())
+                max_points = len(skills) * 2
+                percentage = (points / max_points) * 100 if max_points > 0 else 0
+                chart_data.append({"المادة": subject, "نسبة التحكم (%)": percentage})
+            
+            df_chart = pd.DataFrame(chart_data)
+            st.bar_chart(df_chart, x="المادة", y="نسبة التحكم (%)")
+
+            # 3. جدول التفاصيل (ماذا ينقص التلميذ؟)
+            st.subheader("🔍 تفاصيل المهارات غير المكتسبة")
+            found_issues = False
+            for subject, skills in data.items():
+                weak_skills = [k for k, v in skills.items() if v == 0] # 0 يعني غير مكتسب
+                if weak_skills:
+                    found_issues = True
+                    with st.expander(f"تنبيهات في مادة: {subject}", expanded=True):
+                        for ws in weak_skills:
+                            st.error(f"- {ws}")
+            
+            if not found_issues:
+                st.success("ما شاء الله! التلميذ لا يعاني من تعثرات 'غير مكتسبة' في المهارات المرصودة.")
+

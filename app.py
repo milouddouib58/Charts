@@ -296,8 +296,21 @@ elif menu == "التقرير التشخيصي":
 
         # --- Report Export ---
         st.divider()
-        report_text = f"تقرير التلميذ: {selected_student}\nالمجموع: {scores['overall_percentage']:.1f}%"
-        st.download_button("📄 تحميل تقرير نصي", report_text, f"report_{selected_student}.txt")
+        
+        # Determine narrative and action plan
+        narrative, action_plan = dm.analyze_student_performance(selected_student, data)
+        student_info = st.session_state.students[selected_student]["info"]
+        
+        report_text = dm.generate_text_report(
+            selected_student, 
+            student_info, 
+            data, 
+            scores, 
+            narrative, 
+            action_plan
+        )
+        
+        st.download_button("📄 تحميل تقرير نصي احترافي", report_text, f"report_{selected_student}.txt")
 
         # --- PDF Export (Restored) ---
         st.write("")

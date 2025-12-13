@@ -144,27 +144,31 @@ def calculate_scores(evaluations):
     strengths = []
     
     # Calculate Academic
-    if "academic" in evaluations:
+    # Careful iteration to avoid AttributeError if data is malformed or contains non-dict items
+    if "academic" in evaluations and isinstance(evaluations["academic"], dict):
         for subject, skills in evaluations["academic"].items():
-            for skill, score in skills.items():
-                academic_total += score
-                academic_max += 2
-                if score == 0:
-                    weaknesses.append(f"[المواد الدراسية - {subject}] {skill}")
-                elif score == 2:
-                    strengths.append(f"[المواد الدراسية - {subject}] {skill}")
+            if isinstance(skills, dict):
+                for skill, score in skills.items():
+                    academic_total += score
+                    academic_max += 2
+                    if score == 0:
+                        weaknesses.append(f"[المواد الدراسية - {subject}] {skill}")
+                    elif score == 2:
+                        strengths.append(f"[المواد الدراسية - {subject}] {skill}")
     
     # Calculate Behavioral
-    if "behavioral" in evaluations:
+    if "behavioral" in evaluations and isinstance(evaluations["behavioral"], dict):
         for category, domains in evaluations["behavioral"].items():
-            for domain, skills in domains.items():
-                for skill, score in skills.items():
-                    behavioral_total += score
-                    behavioral_max += 2
-                    if score == 0:
-                        weaknesses.append(f"[المهارات - {category}/{domain}] {skill}")
-                    elif score == 2:
-                        strengths.append(f"[المهارات - {category}/{domain}] {skill}")
+            if isinstance(domains, dict):
+                for domain, skills in domains.items():
+                    if isinstance(skills, dict):
+                        for skill, score in skills.items():
+                            behavioral_total += score
+                            behavioral_max += 2
+                            if score == 0:
+                                weaknesses.append(f"[المهارات - {category}/{domain}] {skill}")
+                            elif score == 2:
+                                strengths.append(f"[المهارات - {category}/{domain}] {skill}")
     
     overall_total = academic_total + behavioral_total
     overall_max = academic_max + behavioral_max
@@ -240,21 +244,10 @@ def analyze_student_performance(name, evaluation_data):
     total_score = 0
     max_score = 0
     
-    # Calculate Academic
-    if "academic" in evaluation_data:
+    # Calculate Academic (Safe iteration)
+    if "academic" in evaluation_data and isinstance(evaluation_data["academic"], dict):
         for subject, skills in evaluation_data["academic"].items():
-            for skill, score in skills.items():
-                total_score += score
-                max_score += 2
-                if score == 2:
-                    strengths.append(skill)
-                elif score == 0:
-                    weaknesses_list.append(skill)
-    
-    # Calculate Behavioral
-    if "behavioral" in evaluation_data:
-        for category, domains in evaluation_data["behavioral"].items():
-            for domain, skills in domains.items():
+            if isinstance(skills, dict):
                 for skill, score in skills.items():
                     total_score += score
                     max_score += 2
@@ -262,6 +255,20 @@ def analyze_student_performance(name, evaluation_data):
                         strengths.append(skill)
                     elif score == 0:
                         weaknesses_list.append(skill)
+    
+    # Calculate Behavioral (Safe iteration)
+    if "behavioral" in evaluation_data and isinstance(evaluation_data["behavioral"], dict):
+        for category, domains in evaluation_data["behavioral"].items():
+            if isinstance(domains, dict):
+                for domain, skills in domains.items():
+                    if isinstance(skills, dict):
+                        for skill, score in skills.items():
+                            total_score += score
+                            max_score += 2
+                            if score == 2:
+                                strengths.append(skill)
+                            elif score == 0:
+                                weaknesses_list.append(skill)
     
     percentage = (total_score / max_score * 100) if max_score > 0 else 0
     
@@ -323,3 +330,76 @@ def analyze_student_performance(name, evaluation_data):
     full_narrative = "\n\n".join(narrative) # Separated by double newlines for readable paragraphs
     
     return full_narrative, action_plan
+
+def generate_text_report(student_name, student_info, evaluation_data, stats, narrative, action_plan):
+    """
+    Generates a professional text-based report mirroring the PDF structure.
+    """
+    report = []
+    
+    # Header
+    report.append("="*50)
+    report.append(f"تقرير التقييم الشامل - {datetime.now().strftime('%Y-%m-%d')}")
+    report.append("نظام التقييم التربوي - الإصدار 4.0")
+    report.append("="*50)
+    report.append("")
+    
+    # Student Info
+    report.append("📋 بيانات التلميذ:")
+    report.append(f"• الاسم: {student_name}")
+    report.append(f"• المستوى: {student_info.get('class_level', 'غير محدد')}")
+    report.append(f"• تاريخ الميلاد: {student_info.get('dob', 'غير محدد')}")
+    report.append("")
+    
+    # Summary
+    report.append("📊 ملخص الأداء:")
+    report.append(f"• النسبة العامة: {stats.get('overall_percentage', 0):.1f}%")
+    report.append(f"• الأداء الأكاديمي: {stats.get('academic_percentage', 0):.1f}%")
+    report.append(f"• الأداء السلوكي: {stats.get('behavioral_percentage', 0):.1f}%")
+    report.append(f"• نقاط تحتاج لتحسين: {len(stats.get('weaknesses', []))}")
+    report.append("")
+    
+    # Narrative
+    report.append("📝 التحليل النوعي:")
+    report.append(narrative)
+    report.append("")
+    
+    # Action Plan
+    if action_plan:
+        report.append("💡 خطة العمل المقترحة:")
+        for skill, activity in action_plan:
+            report.append(f"- {skill}: {activity}")
+        report.append("")
+        
+    # Detailed Breakdown
+    report.append("📑 التفاصيل حسب المجالات:")
+    report.append("-" * 30)
+    
+    # Academic
+    if "academic" in evaluation_data and isinstance(evaluation_data["academic"], dict):
+        report.append("\n[المواد الدراسية]")
+        for subject, skills in evaluation_data["academic"].items():
+            if isinstance(skills, dict):
+                report.append(f"\n♦ {subject}:")
+                for skill, score in skills.items():
+                    status = RATING_OPTIONS[score] if isinstance(score, int) and 0 <= score < len(RATING_OPTIONS) else "غير محدد"
+                    report.append(f"  - {skill}: {status}")
+
+    # Behavioral
+    if "behavioral" in evaluation_data and isinstance(evaluation_data["behavioral"], dict):
+        report.append("\n[المهارات السلوكية]")
+        for main_cat, sub_cats in evaluation_data["behavioral"].items():
+            if isinstance(sub_cats, dict):
+                report.append(f"\n♦ {main_cat}:")
+                for sub_cat, skills in sub_cats.items():
+                    if isinstance(skills, dict):
+                        report.append(f"  > {sub_cat}:")
+                        for skill, score in skills.items():
+                            status = RATING_OPTIONS[score] if isinstance(score, int) and 0 <= score < len(RATING_OPTIONS) else "غير محدد"
+                            report.append(f"    - {skill}: {status}")
+    
+    report.append("")
+    report.append("="*50)
+    report.append("تم إنشاء هذا التقرير آلياً بواسطة نظام التقييم الشامل.")
+    
+    return "\n".join(report)

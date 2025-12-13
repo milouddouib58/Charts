@@ -8,63 +8,27 @@ class PDFReport(FPDF):
         self.custom_font_loaded = False
         self.font_family = 'Helvetica' # Default placeholder
         
-        # Strategy 1: Noto Naskh Arabic (Download)
-        font_url = "https://github.com/google/fonts/raw/main/ofl/notonaskharabic/NotoNaskhArabic-Regular.ttf"
-        font_url_bold = "https://github.com/google/fonts/raw/main/ofl/notonaskharabic/NotoNaskhArabic-Bold.ttf"
+        # Fonts (Bundled in repo)
+        base_path = os.path.dirname(os.path.abspath(__file__))
+        path_reg = os.path.join(base_path, 'assets', 'fonts', 'Amiri-Regular.ttf')
+        path_bold = os.path.join(base_path, 'assets', 'fonts', 'Amiri-Bold.ttf')
         
-        path_reg = 'assets/fonts/NotoNaskhArabic-Regular.ttf'
-        path_bold = 'assets/fonts/NotoNaskhArabic-Bold.ttf'
-        
-        os.makedirs('assets/fonts', exist_ok=True)
-        
-        # Strategy 2: Windows System Font (Backup)
-        sys_font_reg = 'C:/Windows/Fonts/arial.ttf'
-        sys_font_bold = 'C:/Windows/Fonts/arialbd.ttf'
-
-        loaded_success = False
-
-        # Attempt 1: Download
-        try:
-            import urllib.request
-            def download_if_missing(url, path):
-                if not os.path.exists(path) or os.path.getsize(path) < 1000:
-                    print(f"Downloading {path}...")
-                    opener = urllib.request.build_opener()
-                    opener.addheaders = [('User-Agent', 'Mozilla/5.0')]
-                    urllib.request.install_opener(opener)
-                    urllib.request.urlretrieve(url, path)
-            
-            download_if_missing(font_url, path_reg)
-            download_if_missing(font_url_bold, path_bold)
-            
-            self.add_font('NotoNaskhArabic', '', path_reg)
-            self.add_font('NotoNaskhArabic', 'B', path_bold)
-            self.font_family = 'NotoNaskhArabic'
-            self.custom_font_loaded = True
-            loaded_success = True
-            
-        except Exception as e:
-            print(f"Download failed: {e}")
-            # Try cleanup
-            if os.path.exists(path_reg): os.remove(path_reg)
-
-        # Attempt 2: System Fonts (if Attempt 1 failed)
-        if not loaded_success:
-            print("Attempting System Fonts...")
-            if os.path.exists(sys_font_reg) and os.path.exists(sys_font_bold):
-                try:
-                    self.add_font('SystemArial', '', sys_font_reg)
-                    self.add_font('SystemArial', 'B', sys_font_bold)
-                    self.font_family = 'SystemArial'
-                    self.custom_font_loaded = True # Arial supports reshaping usually
-                    loaded_success = True
-                    print("Using Windows System Arial.")
-                except Exception as e:
-                    print(f"System font load error: {e}")
-
-        # Final Check
-        if not loaded_success:
-            raise ValueError("Could not load any Arabic-supporting font (Internet download failed and System Arial not found). PDF generation aborted to prevent crash.")
+        # Verify fonts exist (Use bundled fonts ONLY for stability)
+        if os.path.exists(path_reg) and os.path.exists(path_bold):
+             try:
+                self.add_font('Amiri', '', path_reg)
+                self.add_font('Amiri', 'B', path_bold)
+                self.font_family = 'Amiri'
+                self.custom_font_loaded = True
+             except Exception as e:
+                print(f"Font load error: {e}")
+                raise ValueError(f"Failed to load bundled fonts: {e}")
+        else:
+            # Debugging info
+            print(f"Current Directory: {os.getcwd()}")
+            print(f"Base Path: {base_path}")
+            print(f"Expected Font Path: {path_reg}")
+            raise ValueError(f"Font files not found at {path_reg}. Please ensure the 'assets/fonts' folder is uploaded to the server.")
 
     def process_text(self, text):
         """
@@ -170,18 +134,36 @@ class PDFReport(FPDF):
         self.ln()
         
         self.set_font(self.font_family, '', 10)
-        for main, subs in evaluation_data.items():
-            for sub, skills in subs.items():
-                for skill, score in skills.items():
-                    status_raw = "مكتسب" if score == 2 else "في طريق الاكتساب" if score == 1 else "غير مكتسب"
-                    status = self.process_text(status_raw)
-                    skill_processed = self.process_text(skill)
-                    sub_processed = self.process_text(sub)
-                    
-                    self.cell(60, 10, status, border=1, align='C')
-                    self.cell(70, 10, skill_processed, border=1, align='R') 
-                    self.cell(60, 10, sub_processed, border=1, align='R')
-                    self.ln()
+        
+        # Helper to add row
+        def add_row(domain, skill_name, score_val):
+            status_raw = "مكتسب" if score_val == 2 else "في طريق الاكتساب" if score_val == 1 else "غير مكتسب"
+            status = self.process_text(status_raw)
+            skill_processed = self.process_text(skill_name)
+            sub_processed = self.process_text(domain)
+            
+            self.cell(60, 10, status, border=1, align='C')
+            self.cell(70, 10, skill_processed, border=1, align='R') 
+            self.cell(60, 10, sub_processed, border=1, align='R')
+            self.ln()
+
+        # Handle Academic (2 levels: Subject -> Skill -> Score)
+        if "academic" in evaluation_data and isinstance(evaluation_data["academic"], dict):
+            for subject, skills in evaluation_data["academic"].items():
+                if isinstance(skills, dict):
+                    for skill, score in skills.items():
+                        add_row(subject, skill, score)
+
+        # Handle Behavioral (3 levels: MainCat -> SubCat -> Skill -> Score)
+        if "behavioral" in evaluation_data and isinstance(evaluation_data["behavioral"], dict):
+            for main_cat, sub_cats in evaluation_data["behavioral"].items():
+                if isinstance(sub_cats, dict):
+                    for sub_cat, skills in sub_cats.items():
+                        if isinstance(skills, dict):
+                            for skill, score in skills.items():
+                                # Combine Main and Sub for domain column or just use Sub
+                                domain_label = f"{main_cat} - {sub_cat}"
+                                add_row(domain_label, skill, score)
 
         return bytes(self.output())
 
@@ -193,12 +175,28 @@ def create_pdf(student_name, data, narrative, action_plan):
         total = 0
         max_score = 0
         weaknesses = 0
-        for m in data.values():
-            for s in m.values():
-                for v in s.values():
-                    total += v
-                    max_score += 2
-                    if v == 0: weaknesses += 1
+        
+        # Explicitly handle academic and behavioral to avoid str errors and structure mismatch
+        
+        # Academic
+        if "academic" in data and isinstance(data["academic"], dict):
+             for subject, skills in data["academic"].items():
+                 if isinstance(skills, dict):
+                     for score in skills.values():
+                         total += score
+                         max_score += 2
+                         if score == 0: weaknesses += 1
+
+        # Behavioral
+        if "behavioral" in data and isinstance(data["behavioral"], dict):
+             for main_cat, sub_cats in data["behavioral"].items():
+                 if isinstance(sub_cats, dict):
+                     for skills in sub_cats.values():
+                         if isinstance(skills, dict):
+                             for score in skills.values():
+                                 total += score
+                                 max_score += 2
+                                 if score == 0: weaknesses += 1
         
         score = (total / max_score * 100) if max_score else 0
         stats = {"score": score, "weaknesses_count": weaknesses}

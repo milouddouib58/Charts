@@ -187,3 +187,139 @@ def calculate_scores(evaluations):
         "strengths": strengths
     }
 
+
+# --- Smart Analysis & Recommendations (v4.1) ---
+RECOMMENDATIONS_MAP = {
+    "تمييز الأحرف الأبجدية": "استخدام بطاقات الصنفرة (Sandpaper Letters) لتعزيز الذاكرة الحسية.",
+    "مطابقة الصورة بالكلمة": "ألعاب الذاكرة البصرية (Memory Match) مع صور وكلمات.",
+    "تتبع النص من اليمين لليسار": "أنشطة القراءة المشتركة مع الإشارة بالإصبع أثناء القراءة.",
+    "مسك القلم بالطريقة الصحيحة": "استخدام مقابض الأقلام (Pencil Grips) والتدريب على التقاط الأشياء الصغيرة.",
+    "نسخ أشكال وأحرف بسيطة": "التدرب على الرسم في الرمل أو المعجون قبل الورق.",
+    "كتابة الاسم الأول": "كتابة الاسم بخط منقط ليقوم التلميذ بتتبعه.",
+    "العد حتى 20": "استخدام المحسوسات (الخرز، المكعبات) للعد الملموس.",
+    "المقارنة الكمية (أكثر/أقل)": "توزيع الحلوى أو الألعاب على مجموعتين والمقارنة بينهما.",
+    "تصنيف الأشياء حسب اللون/الشكل": "لعبة 'فرز الأزرار' أو المكعبات في أوعية ملونة.",
+    "سرد قصة متسلسلة": "استخدام بطاقات القصة المصورة لترتيب الأحداث.",
+    "استخدام جمل كاملة": "تشجيع التلميذ على وصف ما يراه في الصور بجمل تامة.",
+    "فهم التعليمات المركبة": "لعبة 'قال القائد' بتعليمات مزدوجة (صفق ثم قف).",
+    "التركيز على نشاط لمدة 15 دقيقة": "استخدام المؤقت الرملي لزيادة وقت التركيز تدريجياً.",
+    "إكمال المهمة للنهاية": "تقسيم المهام الكبيرة إلى خطوات صغيرة ومكافأة كل خطوة.",
+    "تذكر تعليمات من 3 خطوات": "لعبة 'أحضر لي' بطلبات متزايدة الصعوبة.",
+    "تذكر أحداث قصة قصيرة": "طرح أسئلة (ماذا، أين، من) بعد قراءة القصة مباشرة.",
+    "الانتقال بين الأنشطة بسلاسة": "استخدام جدول بصري (Visual Schedule) وتنبيه قبل الانتقال.",
+    "تقبل التغيير في الروتين": "إدخال تغييرات بسيطة ومفاجئة في اللعب كتدريب.",
+    "التعبير عن المشاعر بدقة": "استخدام 'عجلة المشاعر' للمساعدة في تسمية الشعور.",
+    "الثقة بالنفس": "تكليف التلميذ بمهام قيادية بسيطة (موزع الأوراق).",
+    "المشاركة في اللعب الجماعي": "تنظيم ألعاب تعاونية تتطلب عمل الفريق.",
+    "احترام الدور": "استخدام 'عصا التحدث' أو الكرة لتنظيم الأدوار.",
+    "حل النزاعات ودياً": "تمثيل الأدوار (Role-playing) لحل المشكلات.",
+    "اتباع قواعد القسم": "لوحة التعزيز الإيجابي للنجمات.",
+    "التحكم في الانفعالات": "ركن الهدوء (Calm Down Corner) وتمارين التنفس.",
+    "استخدام المقص": "قص العجين أو خطوط عريضة ومستقيمة أولاً.",
+    "تلوين داخل الحدود": "استخدام حدود بارزة (الغراء الجاف) للمساعدة.",
+    "تركيب المكعبات": "تقليد نماذج بسيطة ثلاثية الأبعاد.",
+    "التوازن (الوقوف على قدم واحدة)": "لعبة 'الثبات كالصنم' أو المشي على خط مرسوم.",
+    "التقاط الكرة ورميها": "استخدام كرة كبيرة وخفيفة وتقليل المسافة.",
+    "ارتداء الملابس/الحذاء": "التدريب على ملابس العرايس أو سترة بأزرار كبيرة.",
+    "استخدام الحمام بمفرده": "جدول روتيني مصور داخل الحمام.",
+    "ترتيب الأغراض الشخصية": "تخصيص علامات صورية لمكان كل غرض."
+}
+
+import random
+
+def analyze_student_performance(name, evaluation_data):
+    """
+    Generates a creative narrative analysis and actionable recommendations.
+    Uses randomized templates to avoid robotic repetition.
+    """
+    narrative = []
+    strengths = []
+    weaknesses_list = []
+    
+    # Analyze Scores
+    total_score = 0
+    max_score = 0
+    
+    # Calculate Academic
+    if "academic" in evaluation_data:
+        for subject, skills in evaluation_data["academic"].items():
+            for skill, score in skills.items():
+                total_score += score
+                max_score += 2
+                if score == 2:
+                    strengths.append(skill)
+                elif score == 0:
+                    weaknesses_list.append(skill)
+    
+    # Calculate Behavioral
+    if "behavioral" in evaluation_data:
+        for category, domains in evaluation_data["behavioral"].items():
+            for domain, skills in domains.items():
+                for skill, score in skills.items():
+                    total_score += score
+                    max_score += 2
+                    if score == 2:
+                        strengths.append(skill)
+                    elif score == 0:
+                        weaknesses_list.append(skill)
+    
+    percentage = (total_score / max_score * 100) if max_score > 0 else 0
+    
+    # 1. Creative Opening (Randomized)
+    # Using 'المتعلم' (The Learner) is often more neutral/professional in reports than 'التلميذ'
+    openings_excellent = [
+        f"أظهر المتعلم **{name}** مستوى متميزاً من الاستعداد المدرسي بنسبة **{percentage:.1f}%**، مما يعكس امتلاكه لمهارات تأسيسية متينة.",
+        f"يسرنا تسجيل تقدم ملحوظ للمتعلم **{name}**، حيث حقق نسبة جاهزية بلغت **{percentage:.1f}%**، وهو مؤشر إيجابي جداً.",
+    ]
+    openings_good = [
+        f"يحرز المتعلم **{name}** تقدماً طيباً في اكتساب المهارات الأساسية بنسبة **{percentage:.1f}%**، مع وجود هامش جيد للتطوير.",
+        f"أظهر التقييم مستوى جيداً للمتعلم **{name}** بنسبة **{percentage:.1f}%**، مما يعني أنه يسير في الطريق الصحيح مع الحاجة لبعض التدعيم.",
+    ]
+    openings_needs_support = [
+        f"تشير النتائج إلى حاجة المتعلم **{name}** لدعم مكثف في بعض الجوانب، حيث بلغت نسبة الاستعداد **{percentage:.1f}%**.",
+        f"نوصي بوضع خطة علاجية مخصصة للمتعلم **{name}** لتعزيز المكتسبات، بناءً على نتيجة التقييم الحالية ({percentage:.1f}%).",
+    ]
+    
+    if percentage >= 85: intro = random.choice(openings_excellent)
+    elif percentage >= 65: intro = random.choice(openings_good)
+    else: intro = random.choice(openings_needs_support)
+    
+    narrative.append(intro)
+    
+    # helper for arabic list join
+    def arabic_join(items):
+        if not items: return ""
+        if len(items) == 1: return items[0]
+        return "، ".join(items[:-1]) + " و" + items[-1]
+
+    # 2. Strengths (Dynamic Phrasing)
+    if strengths:
+        s_phrases = ["تبرز نقاط القوة بوضوح في: ", "أظهر تمكناً ملحوظاً في: ", "من الجوانب المشرقة في أدائه: "]
+        s_text = random.choice(s_phrases)
+        s_sample = strengths[:5] # Take up to 5
+        s_text += f"{arabic_join(s_sample)}."
+        if len(strengths) > 5: s_text += " وغيرها."
+        narrative.append(s_text)
+        
+    # 3. Weaknesses (Soft & Constructive Language)
+    if weaknesses_list:
+        w_phrases = ["لتحقيق توازن في الأداء، ينصح بالتركيز على: ", "تستدعي المهارات التالية بعض الانتباه: ", "سنعمل على تعزيز الجوانب التالية: "]
+        w_text = random.choice(w_phrases)
+        w_text += f"{arabic_join(weaknesses_list[:5])}."
+        narrative.append(w_text)
+    else:
+        narrative.append("✅ وبفضل الله، لم يتم رصد صعوبات جوهرية، ونوصي بالاستمرار في تعزيز التحديات المعرفية.")
+    
+    # Closing
+    closing = "إن المتابعة المستمرة والتشجيع هما المفتاح لتطوير قدرات المتعلم والوصول به إلى أقصى إمكاناته."
+    narrative.append(closing)
+        
+    # Recommendations
+    action_plan = []
+    for w in weaknesses_list:
+        if w in RECOMMENDATIONS_MAP:
+            action_plan.append((w, RECOMMENDATIONS_MAP[w]))
+            
+    full_narrative = "\n\n".join(narrative) # Separated by double newlines for readable paragraphs
+    
+    return full_narrative, action_plan

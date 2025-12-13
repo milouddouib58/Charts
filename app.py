@@ -299,6 +299,36 @@ elif menu == "التقرير التشخيصي":
         report_text = f"تقرير التلميذ: {selected_student}\nالمجموع: {scores['overall_percentage']:.1f}%"
         st.download_button("📄 تحميل تقرير نصي", report_text, f"report_{selected_student}.txt")
 
+        # --- PDF Export (Restored) ---
+        st.write("")
+        col_pdf, col_msg = st.columns([1, 2])
+        with col_pdf:
+            if st.button("📄 تحميل تقرير PDF احترافي", type="primary"):
+                try:
+                    import pdf_generator
+                    
+                    # Generate Narrative & Action Plan dynamically
+                    narrative, action_plan = dm.analyze_student_performance(selected_student, data)
+                    
+                    with st.spinner("جاري إنشاء ملف PDF..."):
+                        pdf_bytes, error_msg = pdf_generator.create_pdf(selected_student, data, narrative, action_plan)
+                    
+                    if pdf_bytes:
+                        st.download_button(
+                            "اضغط هنا للتحميل", 
+                            data=pdf_bytes, 
+                            file_name=f"report_{selected_student}.pdf", 
+                            mime="application/pdf"
+                        )
+                        st.success("تم إنشاء التقرير بنجاح!")
+                    else:
+                        st.error(f"عذراً، حدث خطأ أثناء إنشاء التقرير: {error_msg}")
+                        
+                except ImportError:
+                    st.error("مكتبات PDF غير مثبتة. الرجاء التأكد من تثبيت fpdf2 و arabic-reshaper و python-bidi.")
+                except Exception as e:
+                    st.error(f"خطأ غير متوقع: {e}")
+
 # ==========================================
 # 5. Dashboard
 # ==========================================

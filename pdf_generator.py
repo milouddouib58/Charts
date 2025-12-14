@@ -62,111 +62,105 @@ class PDFReport(FPDF):
         self.set_font(self.font_family, '', 8)
         self.cell(0, 10, f'Page {self.page_no()}', align='C')
 
+    # الدالة الجديدة لتوليد التقرير في صفحة واحدة
     def generate(self, evaluation_data, summary_stats, narrative, action_plan):
         self.add_page()
         
-        # Student Info
-        self.set_font(self.font_family, 'B', 14)
-        info_text = self.process_text(f'اسم التلميذ: {self.student_name}')
-        self.cell(0, 10, info_text, new_x="LMARGIN", new_y="NEXT", align='R')
-        self.ln(5)
+        # 1. الترويسة والبيانات الأساسية (مضغوطة)
+        self.set_font(self.font_family, 'B', 11)
+        self.cell(0, 8, self.process_text(f'اسم التلميذ: {self.student_name}'), ln=True, align='R')
         
-        # Summary
-        self.set_font(self.font_family, 'B', 12)
-        summary_title = self.process_text('ملخص الأداء')
-        self.cell(0, 10, summary_title, new_x="LMARGIN", new_y="NEXT", align='R')
-        self.set_font(self.font_family, '', 12)
+        self.set_font(self.font_family, '', 9)
+        stats_text = f"النسبة العامة: {summary_stats['score']:.1f}% | نقاط الضعف: {summary_stats['weaknesses_count']}"
+        self.cell(0, 6, self.process_text(stats_text), ln=True, align='R')
         
-        score_text = self.process_text(f"النسبة العامة: {summary_stats['score']:.1f}%")
-        weak_text = self.process_text(f"عدد نقاط الضعف: {summary_stats['weaknesses_count']}")
+        # 2. التحليل النوعي وخطة العمل (في سطرين فقط لتوفير المساحة)
+        self.set_font(self.font_family, 'B', 9)
+        self.cell(0, 6, self.process_text("التحليل النوعي وخطة العمل:"), ln=True, align='R')
+        self.set_font(self.font_family, '', 8)
+        short_narrative = narrative[:150] + "..." # اختصار النص السردي
+        self.multi_cell(190, 4, self.process_text(short_narrative), align='R')
         
-        self.cell(0, 10, score_text, new_x="LMARGIN", new_y="NEXT", align='R')
-        self.cell(0, 10, weak_text, new_x="LMARGIN", new_y="NEXT", align='R')
-        self.ln(5)
+        # 3. جدول المواد الدراسية (8 أعمدة = 4 أزواج من مادة/تقييم)
+        self.ln(2)
+        self.set_fill_color(230, 230, 230)
+        self.set_font(self.font_family, 'B', 9)
+        self.cell(0, 6, self.process_text("المواد الدراسية"), ln=True, align='C', fill=True)
         
-        # Qualitative Analysis (Narrative)
-        self.set_font(self.font_family, 'B', 12)
-        narrative_title = self.process_text('التحليل النوعي')
-        self.cell(0, 10, narrative_title, new_x="LMARGIN", new_y="NEXT", align='R')
-        self.set_font(self.font_family, '', 11)
+        self.set_font(self.font_family, '', 7)
+        col_w = 190 / 8  # تقسيم العرض على 8 أعمدة (23.75 مم لكل عمود)
         
-        # FIX: Ensure cursor is at left margin and provide prompt width
-        self.set_x(10)
-        # Note: Narrative is long text. reshaping whole paragraph might work but line wrapping is tricky.
-        # usually bidi handles it but fpdf multi_cell wraps by characters.
-        # We will try passing the full reshaped block.
-        proc_narrative = self.process_text(narrative)
-        self.multi_cell(190, 8, proc_narrative, align='R')
-        self.ln(5)
+        # تحويل بيانات المواد لقائمة مسطحة لتوزيعها
+        academic_list = []
+        for subj, skills in evaluation_data.get("academic", {}).items():
+            for skill, score in skills.items():
+                status = "مكتسب" if score == 2 else "بالمسار" if score == 1 else "غير مكتسب"
+                # دمج اسم المادة مع المهارة إذا لزم الأمر، لكن هنا نستخدم اسم المهارة فقط كما هو مطلوب في الجدول الأفقي
+                academic_list.append((skill, status))
 
-        # Action Plan (Recommendations)
-        if action_plan:
-            self.set_font(self.font_family, 'B', 12)
-            plan_title = self.process_text('خطة العمل المقترحة')
-            self.cell(0, 10, plan_title, new_x="LMARGIN", new_y="NEXT", align='R')
-            self.set_font(self.font_family, '', 10)
-            for skill, activity in action_plan:
-                bg_color = (255, 255, 255) # White
-                self.set_fill_color(*bg_color)
-                # Bullet point
-                self.set_x(10)
-                item_text = self.process_text(f"- {skill}: {activity}")
-                self.multi_cell(190, 7, item_text, align='R', border=0)
-            self.ln(5)
-
-        # Detailed Table
-        self.add_page() # Start table on new page if needed, or just continue
-        self.set_font(self.font_family, 'B', 12)
-        table_title = self.process_text('التفاصيل حسب المجالات')
-        self.cell(0, 10, table_title, new_x="LMARGIN", new_y="NEXT", align='R')
-        
-        # Table Header
-        self.set_fill_color(200, 220, 255)
-        self.set_font(self.font_family, 'B', 10)
-        
-        h1 = self.process_text('الدرجة')
-        h2 = self.process_text('المهارة')
-        h3 = self.process_text('المجال')
-        
-        self.cell(60, 10, h1, border=1, align='C', fill=True)
-        self.cell(70, 10, h2, border=1, align='C', fill=True)
-        self.cell(60, 10, h3, border=1, align='C', fill=True)
-        self.ln()
-        
-        self.set_font(self.font_family, '', 10)
-        
-        # Helper to add row
-        def add_row(domain, skill_name, score_val):
-            status_raw = "مكتسب" if score_val == 2 else "في طريق الاكتساب" if score_val == 1 else "غير مكتسب"
-            status = self.process_text(status_raw)
-            skill_processed = self.process_text(skill_name)
-            sub_processed = self.process_text(domain)
+        # رسم الأسطر (كل سطر يحتوي 4 مهارات وتقييماتها)
+        for i in range(0, len(academic_list), 4):
+            row_items = academic_list[i:i+4]
+            # التأكد من ملء السطر لليمين في حالة عدم وجود 4 عناصر كاملة
+            num_cells_to_draw = len(row_items) * 2
             
-            self.cell(60, 10, status, border=1, align='C')
-            self.cell(70, 10, skill_processed, border=1, align='R') 
-            self.cell(60, 10, sub_processed, border=1, align='R')
+            # حساب الخلية الفارغة في البداية لضمان المحاذاة لليمين
+            empty_cells = 8 - num_cells_to_draw
+            self.cell(col_w * empty_cells, 6, "", border=0, align='C')
+
+            for item in reversed(row_items): # عكس الترتيب للعربية
+                self.cell(col_w, 6, self.process_text(item[1]), border=1, align='C') # التقييم
+                self.cell(col_w, 6, self.process_text(item[0]), border=1, align='R') # المهارة
             self.ln()
 
-        # Handle Academic (2 levels: Subject -> Skill -> Score)
-        if "academic" in evaluation_data and isinstance(evaluation_data["academic"], dict):
-            for subject, skills in evaluation_data["academic"].items():
-                if isinstance(skills, dict):
-                    for skill, score in skills.items():
-                        add_row(subject, skill, score)
+        # 4. جدول المهارات السلوكية (6 أعمدة = 3 أزواج من مهارة/تقييم)
+        self.ln(2)
+        self.set_fill_color(230, 230, 230)
+        self.set_font(self.font_family, 'B', 9)
+        self.cell(0, 6, self.process_text("المهارات السلوكية والوظائف الذهنية"), ln=True, align='C', fill=True)
+        
+        self.set_font(self.font_family, '', 7)
+        col_w_6 = 190 / 6 # 31.6 مم لكل عمود
+        
+        behavioral_list = []
+        # تجميع المهارات السلوكية والذهنية من التقرير 
+        for main_cat, sub_cats in evaluation_data.get("behavioral", {}).items():
+            for sub_cat, skills in sub_cats.items():
+                for skill, score in skills.items():
+                    status = "مكتسب" if score == 2 else "بالمسار" if score == 1 else "غير مكتسب"
+                    behavioral_list.append((skill, status))
 
-        # Handle Behavioral (3 levels: MainCat -> SubCat -> Skill -> Score)
-        if "behavioral" in evaluation_data and isinstance(evaluation_data["behavioral"], dict):
-            for main_cat, sub_cats in evaluation_data["behavioral"].items():
-                if isinstance(sub_cats, dict):
-                    for sub_cat, skills in sub_cats.items():
-                        if isinstance(skills, dict):
-                            for skill, score in skills.items():
-                                # Combine Main and Sub for domain column or just use Sub
-                                domain_label = f"{main_cat} - {sub_cat}"
-                                add_row(domain_label, skill, score)
+        for i in range(0, len(behavioral_list), 3):
+            row_items = behavioral_list[i:i+3]
+            num_cells_to_draw = len(row_items) * 2
+            
+            # حساب الخلية الفارغة في البداية لضمان المحاذاة لليمين
+            empty_cells = 6 - num_cells_to_draw
+            self.cell(col_w_6 * empty_cells, 6, "", border=0, align='C')
+            
+            for item in reversed(row_items):
+                self.cell(col_w_6, 6, self.process_text(item[1]), border=1, align='C')
+                self.cell(col_w_6, 6, self.process_text(item[0]), border=1, align='R')
+            self.ln()
 
+        # 5. خطة العمل المتبقية (بعد الجداول)
+        if action_plan:
+            self.ln(2)
+            self.set_font(self.font_family, 'B', 9)
+            plan_title = self.process_text('خطة العمل المقترحة')
+            self.cell(0, 6, plan_title, ln=True, align='R')
+            
+            self.set_font(self.font_family, '', 7)
+            
+            # طباعة خطة العمل في multiline cell واحدة ومضغوطة
+            plan_lines = [self.process_text(f"- {skill}: {activity}") for skill, activity in action_plan]
+            plan_text = "\n".join(plan_lines)
+            
+            self.multi_cell(190, 4, plan_text, align='R', border=0)
+        
         return bytes(self.output())
 
+# دالة التشغيل الرئيسية تبقى كما هي وتستدعي generate الجديدة
 def create_pdf(student_name, data, narrative, action_plan):
     try:
         pdf = PDFReport(student_name)
@@ -175,8 +169,6 @@ def create_pdf(student_name, data, narrative, action_plan):
         total = 0
         max_score = 0
         weaknesses = 0
-        
-        # Explicitly handle academic and behavioral to avoid str errors and structure mismatch
         
         # Academic
         if "academic" in data and isinstance(data["academic"], dict):

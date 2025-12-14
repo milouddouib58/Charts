@@ -9,16 +9,17 @@ class PDFReport(FPDF):
         self.font_family = 'Helvetica'
 
         base_path = os.path.dirname(os.path.abspath(__file__))
-        path_reg = os.path.join(base_path, 'assets', 'fonts', 'Amiri-Regular.ttf')
-        path_bold = os.path.join(base_path, 'assets', 'fonts', 'Amiri-Bold.ttf')
+        reg = os.path.join(base_path, 'assets', 'fonts', 'Amiri-Regular.ttf')
+        bold = os.path.join(base_path, 'assets', 'fonts', 'Amiri-Bold.ttf')
 
-        if not os.path.exists(path_reg) or not os.path.exists(path_bold):
-            raise ValueError("ملفات الخط Amiri غير موجودة")
+        if not os.path.exists(reg) or not os.path.exists(bold):
+            raise ValueError("خط Amiri غير موجود داخل assets/fonts")
 
-        self.add_font('Amiri', '', path_reg)
-        self.add_font('Amiri', 'B', path_bold)
+        self.add_font('Amiri', '', reg)
+        self.add_font('Amiri', 'B', bold)
         self.font_family = 'Amiri'
 
+    # ---------------- RTL ----------------
     def process_text(self, text):
         try:
             import arabic_reshaper
@@ -27,6 +28,7 @@ class PDFReport(FPDF):
         except Exception:
             return text
 
+    # ---------------- Header / Footer ----------------
     def header(self):
         self.set_font(self.font_family, 'B', 14)
         self.cell(0, 8, self.process_text("تقرير التقييم الشامل"), ln=True, align='C')
@@ -40,16 +42,23 @@ class PDFReport(FPDF):
         self.set_font(self.font_family, '', 8)
         self.cell(0, 8, f"Page {self.page_no()}", align='C')
 
-    # ==================================================
+    # ---------------- عمود مادة واحد ----------------
+    def draw_domain_column(self, x, y, width, title, items):
+        self.set_xy(x, y)
+        self.set_font(self.font_family, 'B', 9)
+        self.multi_cell(width, 7, self.process_text(title), border=1, align='C')
 
+        self.set_font(self.font_family, '', 7)
+        for skill, score in items:
+            status = "مكتسب" if score == 2 else "بالمسار" if score == 1 else "غير مكتسب"
+            text = f"{skill}\n({status})"
+            self.multi_cell(width, 7, self.process_text(text), border=1, align='R')
+
+    # ---------------- Generate ----------------
     def generate(self, data, stats, narrative, action_plan):
         self.add_page()
 
-        TABLE_X = 10
-        TABLE_W = 190
-        ROW_H = 6
-
-        # ---------- بيانات التلميذ ----------
+        # معلومات التلميذ
         self.set_font(self.font_family, 'B', 11)
         self.cell(0, 7, self.process_text(f"اسم التلميذ: {self.student_name}"),
                   ln=True, align='R')
@@ -58,85 +67,74 @@ class PDFReport(FPDF):
         summary = f"النسبة العامة: {stats['score']:.1f}% | نقاط الضعف: {stats['weaknesses_count']}"
         self.cell(0, 6, self.process_text(summary), ln=True, align='R')
 
-        # ---------- التحليل (مختصر) ----------
+        # تحليل مختصر
         self.set_font(self.font_family, 'B', 9)
         self.cell(0, 6, self.process_text("التحليل النوعي:"), ln=True, align='R')
         self.set_font(self.font_family, '', 8)
-        self.multi_cell(TABLE_W, 4, self.process_text(narrative[:180] + "..."),
-                        align='R')
+        self.multi_cell(190, 4, self.process_text(narrative[:180] + "..."), align='R')
 
-        # ==================================================
-        # =============== جدول التقييم (صفحة واحدة) =========
-        # ==================================================
+        # =====================================================
+        #                تقييم المواد الدراسية
+        # =====================================================
+        self.ln(4)
+        self.set_font(self.font_family, 'B', 11)
+        self.cell(0, 8, self.process_text("تقييم المواد الدراسية"), ln=True, align='C')
 
-        self.ln(2)
-        self.set_x(TABLE_X)
-        self.set_font(self.font_family, 'B', 9)
-        self.set_fill_color(230, 230, 230)
-        self.cell(TABLE_W, ROW_H,
-                  self.process_text("التقييم حسب المهارات"),
-                  border=1, fill=True, align='C')
-        self.ln()
+        start_x = 10
+        start_y = self.get_y()
+        col_w = 190 / 4
 
-        self.set_font(self.font_family, '', 7)
+        subjects = [
+            "اللغة العربية",
+            "الرياضيات",
+            "التربية الإسلامية والمدنية",
+            "التربية العلمية"
+        ]
 
-        # ---- تجميع كل المهارات ----
-        all_skills = []
+        academic = data.get("academic", {})
 
-        for subject, skills in data.get("academic", {}).items():
-            for skill, score in skills.items():
-                status = "مكتسب" if score == 2 else "بالمسار" if score == 1 else "غير مكتسب"
-                all_skills.append((skill, status))
+        for i, subject in enumerate(subjects):
+            skills = academic.get(subject, {})
+            items = [(k, v) for k, v in skills.items()]
+            self.draw_domain_column(start_x + i * col_w, start_y, col_w, subject, items)
 
-        for main_cat, sub_cats in data.get("behavioral", {}).items():
-            for sub_cat, skills in sub_cats.items():
-                for skill, score in skills.items():
-                    status = "مكتسب" if score == 2 else "بالمسار" if score == 1 else "غير مكتسب"
-                    all_skills.append((skill, status))
+        self.set_y(start_y + 85)
 
-        # ---- 4 مهارات في السطر = 8 أعمدة ----
-        COL_W = TABLE_W / 8
+        # =====================================================
+        #                تقييم المهارات السلوكية
+        # =====================================================
+        self.ln(6)
+        self.set_font(self.font_family, 'B', 11)
+        self.cell(0, 8, self.process_text("تقييم المهارات السلوكية"), ln=True, align='C')
 
-        for i in range(0, len(all_skills), 4):
-            self.set_x(TABLE_X)
-            row = all_skills[i:i + 4]
+        start_y = self.get_y()
+        col_w = 190 / 3
 
-            while len(row) < 4:
-                row.append(("", ""))
+        behavioral = data.get("behavioral", {})
 
-            for skill, status in reversed(row):
-                self.cell(COL_W, ROW_H, self.process_text(status),
-                          border=1, align='C')
-                self.cell(COL_W, ROW_H, self.process_text(skill),
-                          border=1, align='R')
+        domains = [
+            "الوظائف التنفيذية",
+            "الكفاءة الاجتماعية والعاطفية",
+            "المهارات الحركية والاستقلالية"
+        ]
 
-            self.ln()
+        for i, domain in enumerate(domains):
+            items = []
+            for sub in behavioral.get(domain, {}).values():
+                for skill, score in sub.items():
+                    items.append((skill, score))
 
-        # ---------- خطة العمل (مختصرة) ----------
-        if action_plan:
-            self.ln(2)
-            self.set_font(self.font_family, 'B', 9)
-            self.cell(0, 6, self.process_text("خطة العمل المقترحة"), ln=True, align='R')
-
-            self.set_font(self.font_family, '', 7)
-            text = "\n".join(
-                self.process_text(f"- {s}: {a}") for s, a in action_plan[:6]
-            )
-            self.multi_cell(TABLE_W, 4, text, align='R')
+            self.draw_domain_column(start_x + i * col_w, start_y, col_w, domain, items)
 
         return bytes(self.output())
 
 
-# ==================================================
-# =============== الدالة الرئيسية ====================
-# ==================================================
-
+# ================== الدالة الرئيسية ==================
 def create_pdf(student_name, data, narrative, action_plan):
     try:
         pdf = PDFReport(student_name)
 
         total = max_score = weaknesses = 0
-
         for section in ["academic", "behavioral"]:
             for block in data.get(section, {}).values():
                 if isinstance(block, dict):

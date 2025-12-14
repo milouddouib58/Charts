@@ -6,14 +6,13 @@ class PDFReport(FPDF):
         super().__init__()
         self.student_name = student_name
         self.custom_font_loaded = False
-        self.font_family = 'Helvetica' # Default placeholder
+        self.font_family = 'Helvetica' # Default
         
-        # Fonts (Bundled in repo)
+        # إعداد المسارات للخطوط
         base_path = os.path.dirname(os.path.abspath(__file__))
         path_reg = os.path.join(base_path, 'assets', 'fonts', 'Amiri-Regular.ttf')
         path_bold = os.path.join(base_path, 'assets', 'fonts', 'Amiri-Bold.ttf')
         
-        # Verify fonts exist (Use bundled fonts ONLY for stability)
         if os.path.exists(path_reg) and os.path.exists(path_bold):
              try:
                 self.add_font('Amiri', '', path_reg)
@@ -22,148 +21,187 @@ class PDFReport(FPDF):
                 self.custom_font_loaded = True
              except Exception as e:
                 print(f"Font load error: {e}")
-                raise ValueError(f"Failed to load bundled fonts: {e}")
+                raise ValueError(f"Failed to load fonts: {e}")
         else:
-            # Debugging info
-            print(f"Current Directory: {os.getcwd()}")
-            print(f"Base Path: {base_path}")
-            print(f"Expected Font Path: {path_reg}")
-            raise ValueError(f"Font files not found at {path_reg}. Please ensure the 'assets/fonts' folder is uploaded to the server.")
+            raise ValueError(f"Font files not found at {path_reg}")
 
     def process_text(self, text):
-        """
-        Reshapes Arabic text. Explicitly requires custom_font_loaded.
-        """
+        """إعادة تشكيل النص العربي ليظهر بشكل صحيح"""
         if not self.custom_font_loaded:
-            return "Font Error" # Should be caught by init exception usually
-            
+            return str(text)
         try:
             import arabic_reshaper
             from bidi.algorithm import get_display
-            reshaped_text = arabic_reshaper.reshape(text)
-            bidi_text = get_display(reshaped_text)
-            return bidi_text
-        except ImportError as e:
-            print(f"RTL Library Error: {e}")
-            return text
+            reshaped_text = arabic_reshaper.reshape(str(text))
+            return get_display(reshaped_text)
+        except ImportError:
+            return str(text)
+
+    def get_status_label(self, score):
+        """نصوص تقييم مختصرة لتناسب الجدول الضيق"""
+        if score == 2: return "مكتسب"
+        if score == 1: return "في الطريق" # اختصار لـ في طريق الاكتساب
+        return "غير مكتسب"
 
     def header(self):
-        self.set_font(self.font_family, 'B', 15)
-        # Apply process_text to all Arabic strings
+        # رأس صفحة مدمج
+        self.set_font(self.font_family, 'B', 14)
         title = self.process_text('تقرير التقييم الشامل')
-        self.cell(0, 10, title, border=0, align='C', new_x="LMARGIN", new_y="NEXT")
+        self.cell(0, 8, title, border=0, align='C', new_x="LMARGIN", new_y="NEXT")
+        
         self.set_font(self.font_family, '', 10)
-        subtitle = self.process_text('نظام التقييم التربوي - الإصدار 4.0')
-        self.cell(0, 10, subtitle, border=0, align='C', new_x="LMARGIN", new_y="NEXT")
-        self.ln(5)
+        subtitle = self.process_text(f'اسم التلميذ: {self.student_name} | نظام التقييم التربوي')
+        self.cell(0, 6, subtitle, border='B', align='C', new_x="LMARGIN", new_y="NEXT")
+        self.ln(3)
 
     def footer(self):
-        self.set_y(-15)
+        self.set_y(-12)
         self.set_font(self.font_family, '', 8)
         self.cell(0, 10, f'Page {self.page_no()}', align='C')
+
+    def draw_grid_table(self, title, items, columns_per_row, col_widths):
+        """
+        دالة مساعدة لرسم الجداول بنظام الشبكة
+        items: قائمة من (اسم, درجة)
+        columns_per_row: عدد الأزواج في الصف (مثلا 4 أزواج = 8 أعمدة)
+        col_widths: قائمة بعرض العمودين [عرض_الاسم, عرض_الدرجة]
+        """
+        if not items: return
+
+        # رسم عنوان الجدول
+        self.set_font(self.font_family, 'B', 12)
+        self.set_fill_color(240, 240, 240)
+        processed_title = self.process_text(title)
+        self.cell(0, 8, processed_title, ln=True, align='R', fill=True)
+        
+        # إعدادات الخط للجدول
+        self.set_font(self.font_family, '', 9) 
+        row_height = 7
+        
+        # تقسيم البيانات إلى مجموعات (Chunks)
+        # إذا كان columns_per_row = 4 (يعني 8 أعمدة فعلية)، نأخذ 4 عناصر في كل صف
+        total_items = len(items)
+        
+        for i in range(0, total_items, columns_per_row):
+            chunk = items[i : i + columns_per_row]
+            
+            # لأن العربية من اليمين لليسار، سنقوم برسم الخلايا بالترتيب
+            # ولكن نجعل محاذاة النص لليمين.
+            # للحفاظ على الترتيب البصري العربي (العمود الأول يمين)، يعتمد ذلك على ترتيب البيانات في القائمة
+            # سنقوم بعكس ترتيب الـ chunk لطباعتها من اليسار لليمين فتظهر اليمين هو الأول منطقياً
+            # أو نتركها كما هي ونعتمد تدفق الصفحة. سنتركها لتملأ من اليمين لليسار بصرياً عبر محاذاة النص.
+            
+            # لحساب التموضع الدقيق، سنستخدم x, y
+            start_x = self.get_x()
+            
+            # نريد طباعة العناصر بحيث يظهر العنصر الأول في القائمة في أقصى اليمين
+            # FPDF يطبع من اليسار. لذا سنعكس الـ Chunk الحالية ليتم طباعة العنصر الأخير أولاً (يسار) والأول أخيراً (يمين)
+            # هذا يخلق وهم الجدول العربي الصحيح
+            reversed_chunk = chunk[::-1] 
+            
+            # إذا كان الصف غير مكتمل (أقل من العدد المطلوب)، نحتاج لإزاحة المؤشر ليبدأ من المكان الصحيح
+            empty_slots = columns_per_row - len(chunk)
+            if empty_slots > 0:
+                # نحسب المسافة الفارغة على اليسار
+                total_pair_width = col_widths[0] + col_widths[1]
+                self.set_x(start_x + (empty_slots * total_pair_width))
+
+            for item_name, item_score in reversed_chunk:
+                # الاسم
+                self.set_font(self.font_family, '', 8) # خط صغير للاسم
+                name_txt = self.process_text(item_name)
+                # قد نحتاج لقص النص إذا كان طويلاً جداً
+                if len(name_txt) > 25: name_txt = name_txt[:22] + ".."
+                
+                self.cell(col_widths[0], row_height, name_txt, border=1, align='R')
+                
+                # التقييم
+                self.set_font(self.font_family, 'B', 8)
+                score_txt = self.process_text(self.get_status_label(item_score))
+                
+                # تلوين الخلفية حسب الدرجة لتحسين الرؤية
+                if item_score == 0: self.set_fill_color(255, 235, 235) # أحمر فاتح
+                elif item_score == 2: self.set_fill_color(235, 255, 235) # أخضر فاتح
+                else: self.set_fill_color(255, 255, 255)
+                
+                self.cell(col_widths[1], row_height, score_txt, border=1, align='C', fill=True)
+            
+            self.ln()
+        
+        self.ln(3) # مسافة بعد الجدول
 
     def generate(self, evaluation_data, summary_stats, narrative, action_plan):
         self.add_page()
         
-        # Student Info
-        self.set_font(self.font_family, 'B', 14)
-        info_text = self.process_text(f'اسم التلميذ: {self.student_name}')
-        self.cell(0, 10, info_text, new_x="LMARGIN", new_y="NEXT", align='R')
-        self.ln(5)
+        # 1. الملخص السريع (أفقي لتوفير المساحة)
+        self.set_font(self.font_family, 'B', 11)
+        score_txt = self.process_text(f"النسبة العامة: {summary_stats['score']:.1f}%")
+        weak_txt = self.process_text(f"نقاط الضعف: {summary_stats['weaknesses_count']}")
         
-        # Summary
-        self.set_font(self.font_family, 'B', 12)
-        summary_title = self.process_text('ملخص الأداء')
-        self.cell(0, 10, summary_title, new_x="LMARGIN", new_y="NEXT", align='R')
-        self.set_font(self.font_family, '', 12)
-        
-        score_text = self.process_text(f"النسبة العامة: {summary_stats['score']:.1f}%")
-        weak_text = self.process_text(f"عدد نقاط الضعف: {summary_stats['weaknesses_count']}")
-        
-        self.cell(0, 10, score_text, new_x="LMARGIN", new_y="NEXT", align='R')
-        self.cell(0, 10, weak_text, new_x="LMARGIN", new_y="NEXT", align='R')
-        self.ln(5)
-        
-        # Qualitative Analysis (Narrative)
-        self.set_font(self.font_family, 'B', 12)
-        narrative_title = self.process_text('التحليل النوعي')
-        self.cell(0, 10, narrative_title, new_x="LMARGIN", new_y="NEXT", align='R')
-        self.set_font(self.font_family, '', 11)
-        
-        # FIX: Ensure cursor is at left margin and provide prompt width
-        self.set_x(10)
-        # Note: Narrative is long text. reshaping whole paragraph might work but line wrapping is tricky.
-        # usually bidi handles it but fpdf multi_cell wraps by characters.
-        # We will try passing the full reshaped block.
-        proc_narrative = self.process_text(narrative)
-        self.multi_cell(190, 8, proc_narrative, align='R')
-        self.ln(5)
+        # رسم مربع للملخص
+        self.set_fill_color(245, 245, 245)
+        self.cell(95, 8, score_txt, border=1, align='C', fill=True)
+        self.cell(95, 8, weak_txt, border=1, align='C', fill=True, new_x="LMARGIN", new_y="NEXT")
+        self.ln(4)
 
-        # Action Plan (Recommendations)
-        if action_plan:
-            self.set_font(self.font_family, 'B', 12)
-            plan_title = self.process_text('خطة العمل المقترحة')
-            self.cell(0, 10, plan_title, new_x="LMARGIN", new_y="NEXT", align='R')
-            self.set_font(self.font_family, '', 10)
-            for skill, activity in action_plan:
-                bg_color = (255, 255, 255) # White
-                self.set_fill_color(*bg_color)
-                # Bullet point
-                self.set_x(10)
-                item_text = self.process_text(f"- {skill}: {activity}")
-                self.multi_cell(190, 7, item_text, align='R', border=0)
-            self.ln(5)
-
-        # Detailed Table
-        self.add_page() # Start table on new page if needed, or just continue
-        self.set_font(self.font_family, 'B', 12)
-        table_title = self.process_text('التفاصيل حسب المجالات')
-        self.cell(0, 10, table_title, new_x="LMARGIN", new_y="NEXT", align='R')
-        
-        # Table Header
-        self.set_fill_color(200, 220, 255)
-        self.set_font(self.font_family, 'B', 10)
-        
-        h1 = self.process_text('الدرجة')
-        h2 = self.process_text('المهارة')
-        h3 = self.process_text('المجال')
-        
-        self.cell(60, 10, h1, border=1, align='C', fill=True)
-        self.cell(70, 10, h2, border=1, align='C', fill=True)
-        self.cell(60, 10, h3, border=1, align='C', fill=True)
-        self.ln()
-        
-        self.set_font(self.font_family, '', 10)
-        
-        # Helper to add row
-        def add_row(domain, skill_name, score_val):
-            status_raw = "مكتسب" if score_val == 2 else "في طريق الاكتساب" if score_val == 1 else "غير مكتسب"
-            status = self.process_text(status_raw)
-            skill_processed = self.process_text(skill_name)
-            sub_processed = self.process_text(domain)
-            
-            self.cell(60, 10, status, border=1, align='C')
-            self.cell(70, 10, skill_processed, border=1, align='R') 
-            self.cell(60, 10, sub_processed, border=1, align='R')
-            self.ln()
-
-        # Handle Academic (2 levels: Subject -> Skill -> Score)
-        if "academic" in evaluation_data and isinstance(evaluation_data["academic"], dict):
+        # 2. تحضير بيانات الجدول الأول (المواد الدراسية)
+        # الهدف: قائمة مسطحة [(المادة: المهارة, الدرجة), ...]
+        academic_items = []
+        if "academic" in evaluation_data:
             for subject, skills in evaluation_data["academic"].items():
                 if isinstance(skills, dict):
                     for skill, score in skills.items():
-                        add_row(subject, skill, score)
+                        # دمج اسم المادة والمهارة لتوفير مساحة أو استخدام المهارة فقط إذا كانت المادة واضحة
+                        # سنستخدم (المادة - المهارة) بخط صغير
+                        label = f"{subject}-{skill}"
+                        academic_items.append((label, score))
+        
+        # المواصفات: 8 أعمدة = 4 أزواج (اسم + تقييم)
+        # عرض الصفحة 190. 190 / 4 = 47.5 ملم لكل زوج.
+        # تقسيم الزوج: الاسم 32 ملم، التقييم 15 ملم.
+        self.draw_grid_table(
+            title='المواد الدراسية (التحصيل الأكاديمي)',
+            items=academic_items,
+            columns_per_row=4,   # 4 أزواج = 8 أعمدة
+            col_widths=[32, 15.5]  # [عرض الاسم, عرض التقييم]
+        )
 
-        # Handle Behavioral (3 levels: MainCat -> SubCat -> Skill -> Score)
-        if "behavioral" in evaluation_data and isinstance(evaluation_data["behavioral"], dict):
-            for main_cat, sub_cats in evaluation_data["behavioral"].items():
-                if isinstance(sub_cats, dict):
-                    for sub_cat, skills in sub_cats.items():
+        # 3. تحضير بيانات الجدول الثاني (المهارات السلوكية)
+        behavioral_items = []
+        if "behavioral" in evaluation_data:
+            for main, subs in evaluation_data["behavioral"].items():
+                if isinstance(subs, dict):
+                    for sub, skills in subs.items():
                         if isinstance(skills, dict):
                             for skill, score in skills.items():
-                                # Combine Main and Sub for domain column or just use Sub
-                                domain_label = f"{main_cat} - {sub_cat}"
-                                add_row(domain_label, skill, score)
+                                behavioral_items.append((skill, score))
+        
+        # المواصفات: 6 أعمدة = 3 أزواج
+        # عرض الصفحة 190. 190 / 3 = 63.3 ملم لكل زوج.
+        # تقسيم الزوج: الاسم 45 ملم، التقييم 18 ملم.
+        self.draw_grid_table(
+            title='المهارات السلوكية والشخصية',
+            items=behavioral_items,
+            columns_per_row=3,   # 3 أزواج = 6 أعمدة
+            col_widths=[45, 18.3]
+        )
+
+        # 4. الملاحظات وخطة العمل (بشكل مختصر في الأسفل)
+        left_y = self.get_y()
+        
+        # تقسيم المساحة المتبقية لعمودين إن أمكن، أو وضعهم تحت بعض
+        self.set_font(self.font_family, 'B', 11)
+        self.cell(0, 8, self.process_text('توصيات وملاحظات'), border='B', ln=True, align='R')
+        
+        self.set_font(self.font_family, '', 10)
+        # دمج النص وتحديد الطول
+        full_text = "- " + narrative + "\n"
+        if action_plan:
+            for skill, act in action_plan:
+                full_text += f"- {skill}: {act}\n"
+        
+        proc_text = self.process_text(full_text)
+        self.multi_cell(0, 6, proc_text, align='R')
 
         return bytes(self.output())
 
@@ -171,14 +209,11 @@ def create_pdf(student_name, data, narrative, action_plan):
     try:
         pdf = PDFReport(student_name)
         
-        # Calculate stats for the report
         total = 0
         max_score = 0
         weaknesses = 0
         
-        # Explicitly handle academic and behavioral to avoid str errors and structure mismatch
-        
-        # Academic
+        # Calculate Stats Logic (Same as before)
         if "academic" in data and isinstance(data["academic"], dict):
              for subject, skills in data["academic"].items():
                  if isinstance(skills, dict):
@@ -187,7 +222,6 @@ def create_pdf(student_name, data, narrative, action_plan):
                          max_score += 2
                          if score == 0: weaknesses += 1
 
-        # Behavioral
         if "behavioral" in data and isinstance(data["behavioral"], dict):
              for main_cat, sub_cats in data["behavioral"].items():
                  if isinstance(sub_cats, dict):
@@ -206,3 +240,4 @@ def create_pdf(student_name, data, narrative, action_plan):
     except Exception as e:
         print(f"PDF Gen Error: {e}")
         return None, str(e)
+

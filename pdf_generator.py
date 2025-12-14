@@ -95,13 +95,11 @@ class PDFReport(FPDF):
         for subj, skills in evaluation_data.get("academic", {}).items():
             for skill, score in skills.items():
                 status = "مكتسب" if score == 2 else "بالمسار" if score == 1 else "غير مكتسب"
-                # دمج اسم المادة مع المهارة إذا لزم الأمر، لكن هنا نستخدم اسم المهارة فقط كما هو مطلوب في الجدول الأفقي
                 academic_list.append((skill, status))
 
         # رسم الأسطر (كل سطر يحتوي 4 مهارات وتقييماتها)
         for i in range(0, len(academic_list), 4):
             row_items = academic_list[i:i+4]
-            # التأكد من ملء السطر لليمين في حالة عدم وجود 4 عناصر كاملة
             num_cells_to_draw = len(row_items) * 2
             
             # حساب الخلية الفارغة في البداية لضمان المحاذاة لليمين
@@ -160,7 +158,7 @@ class PDFReport(FPDF):
         
         return bytes(self.output())
 
-# دالة التشغيل الرئيسية تبقى كما هي وتستدعي generate الجديدة
+# دالة التشغيل الرئيسية
 def create_pdf(student_name, data, narrative, action_plan):
     try:
         pdf = PDFReport(student_name)
@@ -193,6 +191,7 @@ def create_pdf(student_name, data, narrative, action_plan):
         score = (total / max_score * 100) if max_score else 0
         stats = {"score": score, "weaknesses_count": weaknesses}
         
+        # استدعاء دالة generate المعدلة
         pdf_bytes = pdf.generate(data, stats, narrative, action_plan)
         return pdf_bytes, None
     except Exception as e:

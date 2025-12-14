@@ -85,7 +85,8 @@ class PDFReport(FPDF):
         self.ln(2)
         self.set_fill_color(230, 230, 230)
         self.set_font(self.font_family, 'B', 9)
-        self.cell(0, 6, self.process_text("المواد الدراسية"), ln=True, align='C', fill=True)
+        # تم إضافة border='B' لإظهار الحد السفلي للعنوان
+        self.cell(0, 6, self.process_text("المواد الدراسية"), ln=True, align='C', fill=True, border='B')
         
         self.set_font(self.font_family, '', 7)
         col_w = 190 / 8  # تقسيم العرض على 8 أعمدة (23.75 مم لكل عمود)
@@ -99,23 +100,31 @@ class PDFReport(FPDF):
 
         # رسم الأسطر (كل سطر يحتوي 4 مهارات وتقييماتها)
         for i in range(0, len(academic_list), 4):
+            # التأكد من بدأ الرسم من الهامش الأيسر
+            self.set_x(10)
+            
             row_items = academic_list[i:i+4]
             num_cells_to_draw = len(row_items) * 2
             
             # حساب الخلية الفارغة في البداية لضمان المحاذاة لليمين
             empty_cells = 8 - num_cells_to_draw
+            
+            # رسم الخلايا الفارغة
             self.cell(col_w * empty_cells, 6, "", border=0, align='C')
 
             for item in reversed(row_items): # عكس الترتيب للعربية
                 self.cell(col_w, 6, self.process_text(item[1]), border=1, align='C') # التقييم
                 self.cell(col_w, 6, self.process_text(item[0]), border=1, align='R') # المهارة
             self.ln()
+            # إعادة ضبط X بعد سطر البيانات
+            self.set_x(10)
 
         # 4. جدول المهارات السلوكية (6 أعمدة = 3 أزواج من مهارة/تقييم)
         self.ln(2)
         self.set_fill_color(230, 230, 230)
         self.set_font(self.font_family, 'B', 9)
-        self.cell(0, 6, self.process_text("المهارات السلوكية والوظائف الذهنية"), ln=True, align='C', fill=True)
+        # تم إضافة border='B' لإظهار الحد السفلي للعنوان
+        self.cell(0, 6, self.process_text("المهارات السلوكية والوظائف الذهنية"), ln=True, align='C', fill=True, border='B')
         
         self.set_font(self.font_family, '', 7)
         col_w_6 = 190 / 6 # 31.6 مم لكل عمود
@@ -129,17 +138,23 @@ class PDFReport(FPDF):
                     behavioral_list.append((skill, status))
 
         for i in range(0, len(behavioral_list), 3):
+            # التأكد من بدأ الرسم من الهامش الأيسر
+            self.set_x(10)
+            
             row_items = behavioral_list[i:i+3]
             num_cells_to_draw = len(row_items) * 2
             
-            # حساب الخلية الفارغة في البداية لضمان المحاذاة لليمين
             empty_cells = 6 - num_cells_to_draw
+            
+            # رسم الخلايا الفارغة
             self.cell(col_w_6 * empty_cells, 6, "", border=0, align='C')
             
             for item in reversed(row_items):
                 self.cell(col_w_6, 6, self.process_text(item[1]), border=1, align='C')
                 self.cell(col_w_6, 6, self.process_text(item[0]), border=1, align='R')
             self.ln()
+            # إعادة ضبط X بعد سطر البيانات
+            self.set_x(10)
 
         # 5. خطة العمل المتبقية (بعد الجداول)
         if action_plan:
@@ -158,7 +173,7 @@ class PDFReport(FPDF):
         
         return bytes(self.output())
 
-# دالة التشغيل الرئيسية
+# دالة التشغيل الرئيسية تبقى كما هي وتستدعي generate
 def create_pdf(student_name, data, narrative, action_plan):
     try:
         pdf = PDFReport(student_name)
@@ -191,7 +206,6 @@ def create_pdf(student_name, data, narrative, action_plan):
         score = (total / max_score * 100) if max_score else 0
         stats = {"score": score, "weaknesses_count": weaknesses}
         
-        # استدعاء دالة generate المعدلة
         pdf_bytes = pdf.generate(data, stats, narrative, action_plan)
         return pdf_bytes, None
     except Exception as e:

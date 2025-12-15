@@ -3,21 +3,22 @@ import os
 import math
 
 class PDFReport(FPDF):
-    def __init__(self, student_name):
+    def __init__(self, student_name, student_info):
         super().__init__()
         self.student_name = student_name
+        self.student_info = student_info
         self.custom_font_loaded = False
         self.font_family = 'Helvetica'
         
         # إعداد الخطوط
         base_path = os.path.dirname(os.path.abspath(__file__))
-        path_reg = os.path.join(base_path, 'assets', 'fonts', 'Amiri-Regular.ttf')
-        path_bold = os.path.join(base_path, 'assets', 'fonts', 'Amiri-Bold.ttf')
+        self.path_reg = os.path.join(base_path, 'assets', 'fonts', 'Amiri-Regular.ttf')
+        self.path_bold = os.path.join(base_path, 'assets', 'fonts', 'Amiri-Bold.ttf')
         
-        if os.path.exists(path_reg) and os.path.exists(path_bold):
+        if os.path.exists(self.path_reg) and os.path.exists(self.path_bold):
              try:
-                self.add_font('Amiri', '', path_reg)
-                self.add_font('Amiri', 'B', path_bold)
+                self.add_font('Amiri', '', self.path_reg)
+                self.add_font('Amiri', 'B', self.path_bold)
                 self.font_family = 'Amiri'
                 self.custom_font_loaded = True
              except Exception as e:
@@ -35,153 +36,277 @@ class PDFReport(FPDF):
             return str(text)
 
     def header(self):
-        self.set_font(self.font_family, 'B', 14)
-        title = self.process_text('تقرير التقييم الشامل')
-        self.cell(0, 8, title, border=0, align='C', new_x="LMARGIN", new_y="NEXT")
-        self.set_font(self.font_family, '', 10)
-        subtitle = self.process_text(f'اسم التلميذ: {self.student_name}')
-        self.cell(0, 6, subtitle, border='B', align='C', new_x="LMARGIN", new_y="NEXT")
-        self.ln(3)
+        # ترويسة بسيطة جداً لأننا سنرسم تفاصيل الطالب يدوياً في البداية
+        self.set_y(10)
 
-    def draw_symbol(self, x, y, w, h, score):
-        """رسم الرموز (+, ┴, -)"""
-        cx, cy = x + (w / 2), y + (h / 2)
-        r = 2.5
-        self.set_line_width(0.4)
-        self.set_draw_color(0) # Black
+    def footer(self):
+        self.set_y(-15)
+        self.set_font(self.font_family, '', 8)
+        self.cell(0, 10, self.process_text(f'صفحة {self.page_no()}'), 0, 0, 'C')
 
-        if score == 2: # مكتسب (+)
-            self.line(cx - r, cy, cx + r, cy)
-            self.line(cx, cy - r, cx, cy + r)
-        elif score == 1: # في طريق الاكتساب (┴)
-            self.line(cx - r, cy, cx + r, cy)
-            self.line(cx, cy - r, cx, cy)
-        elif score == 0: # غير مكتسب (-)
-            self.line(cx - r, cy, cx + r, cy)
+    def draw_student_details(self):
+        """رسم جدول معلومات التلميذ بشكل أنيق"""
+        self.set_font(self.font_family, 'B', 16)
+        self.cell(0, 10, self.process_text('تقرير التقييم الفصلي الشامل'), 0, 1, 'C')
+        self.ln(5)
+
+        # إطار المعلومات
+        start_y = self.get_y()
+        self.set_fill_color(245, 245, 250)
+        self.set_draw_color(200, 200, 200)
+        self.rect(10, start_y, 190, 35, 'FD')
+
+        # البيانات
+        self.set_font(self.font_family, '', 11)
+        
+        # الصف الأول
+        y = start_y + 8
+        col1_x, col2_x = 180, 110
+        
+        # الاسم
+        self.set_xy(col1_x, y)
+        self.cell(15, 6, self.process_text("الاسم واللقب:"), 0, 0, 'R')
+        self.set_xy(col1_x - 50, y)
+        self.set_font(self.font_family, 'B', 11)
+        self.cell(50, 6, self.process_text(self.student_name), 0, 0, 'R')
+        
+        # المستوى
+        self.set_font(self.font_family, '', 11)
+        self.set_xy(col2_x, y)
+        self.cell(15, 6, self.process_text("المستوى:"), 0, 0, 'R')
+        self.set_xy(col2_x - 40, y)
+        self.set_font(self.font_family, 'B', 11)
+        lvl = self.student_info.get('class_level', 'غير محدد')
+        self.cell(40, 6, self.process_text(lvl), 0, 0, 'R')
+
+        # الصف الثاني
+        y += 10
+        # تاريخ الميلاد
+        self.set_font(self.font_family, '', 11)
+        self.set_xy(col1_x, y)
+        self.cell(15, 6, self.process_text("تاريخ الميلاد:"), 0, 0, 'R')
+        self.set_xy(col1_x - 50, y)
+        self.set_font(self.font_family, 'B', 11)
+        dob = self.student_info.get('dob', '-')
+        self.cell(50, 6, self.process_text(dob), 0, 0, 'R')
+
+        # الجنس
+        self.set_font(self.font_family, '', 11)
+        self.set_xy(col2_x, y)
+        self.cell(15, 6, self.process_text("الجنس:"), 0, 0, 'R')
+        self.set_xy(col2_x - 40, y)
+        self.set_font(self.font_family, 'B', 11)
+        gender = self.student_info.get('gender', '-')
+        self.cell(40, 6, self.process_text(gender), 0, 0, 'R')
+        
+        self.ln(20)
+
+    def draw_legend(self):
+        """رسم مفتاح الرموز الجديد"""
+        self.set_y(self.get_y() + 5)
+        
+        # حساب المواقع
+        page_w = 190
+        box_w = 60
+        margin = (page_w - (box_w * 3)) / 2 + 10
+        
+        y = self.get_y()
+        h = 10
+        
+        # دالة مساعدة لرسم عنصر في المفتاح
+        def draw_key_item(x, text, score):
+            self.set_xy(x, y)
+            # رسم الرمز
+            self.draw_custom_symbol(x + box_w - 15, y + 2, 6, score)
+            # كتابة النص
+            self.set_xy(x, y + 2)
+            self.set_font(self.font_family, '', 10)
+            self.cell(box_w - 20, 6, self.process_text(text), 0, 0, 'C')
+
+        # رسم العناصر
+        draw_key_item(margin + box_w * 2, "مكتسب", 2)
+        draw_key_item(margin + box_w, "في طريق الاكتساب", 1)
+        draw_key_item(margin, "غير مكتسب", 0)
+        
+        self.ln(12)
+
+    def draw_custom_symbol(self, x, y, size, score):
+        """
+        رسم الرموز يدوياً لضمان الجودة
+        score 2: ✔ (صح خضراء)
+        score 1: ◐ (دائرة نصف ممتلئة برتقالية)
+        score 0: ✖ (خطأ حمراء)
+        """
+        self.set_line_width(0.5)
+        
+        if score == 2: # ✔ مكتسب (أخضر)
+            self.set_draw_color(46, 204, 113) # Green
+            # رسم علامة صح
+            self.line(x, y + size/2, x + size/3, y + size)
+            self.line(x + size/3, y + size, x + size, y)
+            
+        elif score == 1: # ◐ في طريق الاكتساب (برتقالي)
+            self.set_draw_color(243, 156, 18) # Orange
+            self.set_fill_color(243, 156, 18)
+            # رسم دائرة
+            cx, cy = x + size/2, y + size/2
+            r = size/2
+            self.circle(cx, cy, r, 'D')
+            # رسم نصف دائرة (قطاع) - محاكاة بسيطة برسم نصف دائرة
+            # FPDF arc: x, y, a, b, start_angle, end_angle
+            # لكن الأسهل رسم مستطيل يغطي النصف ثم قص، أو رسم خطوط.
+            # سنرسم دائرة ونملأ نصفها الأيسر
+            # طريقة مبسطة: رسم نصف دائرة معبأ
+            # Piefill غير متوفر بسهولة في fpdf الأساسي بدون ملحقات، سنرسم خط عمودي ونظلل
+            # للتبسيط البصري: سنرسم دائرة كاملة مفرغة ونقطة كبيرة في الوسط أو نصف تعبئة
+            # المحاولة لرسم نصف دائرة:
+            # 90 to 270 degrees fill
+            # البديل الأجمل والمدعوم: دائرة مع خط عمودي وتظليل نصفها (نحتاج path manipulation)
+            # سنرسم دائرة مملوءة جزئياً (دائرة صغيرة داخل دائرة كبيرة)
+            self.circle(cx, cy, r*0.6, 'F') 
+
+        elif score == 0: # ✖ غير مكتسب (أحمر)
+            self.set_draw_color(231, 76, 60) # Red
+            # رسم علامة خطأ
+            self.line(x, y, x + size, y + size)
+            self.line(x + size, y, x, y + size)
+
+        # إعادة اللون للأسود
+        self.set_draw_color(0)
+        self.set_fill_color(0)
 
     def draw_columnar_table(self, title, data_groups, columns_count):
-        """
-        رسم جدول يعتمد على الأعمدة (كل عمود يمثل مادة/مجالاً)
-        data_groups: قاموس { 'اسم المادة': [ (مهارة, درجة), (مهارة, درجة)... ] }
-        columns_count: عدد الأعمدة في الصف الواحد (مثلاً 4 مواد في الصف)
-        """
         if not data_groups: return
 
-        # 1. عنوان الجدول الرئيسي
+        # عنوان الجدول الرئيسي
         self.set_font(self.font_family, 'B', 12)
         self.set_fill_color(230, 230, 230)
-        self.cell(0, 8, self.process_text(title), ln=True, align='C', fill=True, border=1)
+        self.cell(0, 10, self.process_text(title), ln=True, align='C', fill=True, border=1)
         
-        # إعدادات الأبعاد
         page_width = 190
-        col_width = page_width / columns_count # عرض "المادة" الواحدة
-        # داخل كل مادة، نحتاج تقسيم العرض إلى (اسم المهارة) و (الرمز)
-        # نسبة 75% للنص و 25% للرمز
-        skill_w = col_width * 0.75
-        mark_w = col_width * 0.25
+        col_width = page_width / columns_count
+        skill_w = col_width * 0.80 # 80% للنص
+        mark_w = col_width * 0.20 # 20% للرمز
         
-        # تحويل القاموس إلى قائمة للتعامل مع الفهارس
         groups_list = list(data_groups.items())
         total_groups = len(groups_list)
         
-        # حلقة للمرور على المواد (مجموعة كل columns_count مادة)
         for i in range(0, total_groups, columns_count):
             batch = groups_list[i : i + columns_count]
             
-            # --- رسم رؤوس الأعمدة (أسماء المواد) ---
             self.set_font(self.font_family, 'B', 10)
             self.set_fill_color(245, 245, 245)
             
-            # نحفظ موقع Y قبل الرؤوس
             top_y = self.get_y()
-            if top_y > 270: self.add_page(); top_y = self.get_y()
+            if top_y > 250: self.add_page(); top_y = self.get_y()
             
-            # رسم عناوين المواد لهذا الصف
-            current_x = self.get_x() # يفترض أن يبدأ من اليسار (FPDF standard)
-            # ولكن لترتيب عربي (المادة الأولى يمين)، سنقوم بقراءة الـ batch وعكس أماكن الرسم،
-            # أو رسمها بترتيبها كما هي في القائمة (حسب الترتيب الوارد في البيانات)
+            current_x = self.get_x()
             
-            # لرسم العناوين
-            for subject_name, _ in batch:
+            # --- رسم رؤوس الأعمدة مع النسب المئوية ---
+            for subject_name, skills in batch:
+                # حساب النسبة المئوية للمادة
+                total_score = sum(score for _, score in skills)
+                max_score = len(skills) * 2
+                percent = (total_score / max_score * 100) if max_score > 0 else 0
+                
+                header_text = f"{subject_name} ({percent:.0f}%)"
+                
                 self.set_xy(current_x, top_y)
-                self.cell(col_width, 8, self.process_text(subject_name), border=1, align='C', fill=True)
+                self.multi_cell(col_width, 8, self.process_text(header_text), border=1, align='C', fill=True)
+                
+                # تعديل الموضع للعمود التالي (لأن multicell قد يغير Y)
+                # نعيد Y للأعلى للعمود التالي
                 current_x += col_width
             
-            # إذا كان الصف ناقصاً (أقل من العدد المطلوب)، نترك فراغاً
-            self.ln(8) 
+            # تحديد أقصى ارتفاع وصل له الرأس (في حال كان العنوان طويلاً)
+            self.set_y(top_y + 8) 
             
-            # --- رسم المهارات تحت كل مادة ---
-            # التحدي: كل مادة لديها عدد مختلف من المهارات.
-            # يجب أن نجد "أقصى عدد مهارات" في هذا الصف لنعرف ارتفاع الصف الكلي،
-            # لكن الطلب هو أن تكون المهارات تحت بعضها.
-            # سنقوم برسم عمود كل مادة بشكل مستقل بدءاً من Y الحالي.
-            
+            # --- رسم المهارات ---
             content_start_y = self.get_y()
             max_y_reached = content_start_y
             
-            # إعادة ضبط X للبدء
-            current_x = 10 # هامش الصفحة الأيسر الافتراضي
-            
-            self.set_font(self.font_family, '', 8)
-            row_h = 6 # ارتفاع سطر المهارة
+            current_x = 10 
+            self.set_font(self.font_family, '', 9)
+            row_h = 7
             
             for subject_name, skills in batch:
-                # نحفظ بداية العمود لهذه المادة
                 col_y = content_start_y
                 
                 for skill_name, score in skills:
-                    # التحقق من الصفحة
-                    if col_y > 280: 
-                        # هذا السيناريو معقد في الجداول العمودية، سنفترض أن الصفحة تكفي 
-                        # أو يتم تقليص الخط. للتبسيط لن نعالج كسر الصفحة بداخل العمود الواحد هنا.
-                        pass
+                    if col_y > 260: # حماية تجاوز الصفحة
+                        self.set_xy(current_x, col_y)
+                        self.set_font(self.font_family, 'I', 7)
+                        self.cell(skill_w + mark_w, row_h, self.process_text("..."), 0, 0, 'C')
+                        self.set_font(self.font_family, '', 9)
+                        break 
 
                     # 1. اسم المهارة
                     self.set_xy(current_x, col_y)
-                    # MultiCell لاسم المهارة في حال كان طويلاً
-                    # نحتاج حفظ Y بعد الـ MultiCell
                     self.multi_cell(skill_w, row_h, self.process_text(skill_name), border=1, align='R')
-                    
-                    # ارتفاع الخلية الفعلي الذي تم رسمه
                     actual_h = self.get_y() - col_y
                     
-                    # 2. رمز التقييم (بجانب الاسم)
-                    # يجب أن يكون ارتفاعه مساوياً لارتفاع خلية الاسم (actual_h)
+                    # 2. خلية الرمز
                     self.set_xy(current_x + skill_w, col_y)
                     self.rect(current_x + skill_w, col_y, mark_w, actual_h)
-                    self.draw_symbol(current_x + skill_w, col_y, mark_w, actual_h, score)
                     
-                    # تحديث Y للمهارة التالية
+                    # رسم الرمز المخصص في وسط الخلية
+                    symbol_size = 4
+                    sym_x = current_x + skill_w + (mark_w - symbol_size)/2
+                    sym_y = col_y + (actual_h - symbol_size)/2
+                    self.draw_custom_symbol(sym_x, sym_y, symbol_size, score)
+                    
                     col_y += actual_h
                 
-                # تتبع أقصى ارتفاع وصل إليه أي عمود في هذا الصف
                 if col_y > max_y_reached:
                     max_y_reached = col_y
                 
-                # الانتقال للعمود (المادة) التالية
                 current_x += col_width
 
-            # بعد الانتهاء من رسم كل أعمدة هذا الصف (Batch)، نحرك المؤشر لأقصى نقطة وصل لها أطول عمود
-            # ونضيف مسافة صغيرة
-            self.set_y(max_y_reached + 2)
+            self.set_y(max_y_reached + 5)
+
+    def draw_signatures_footer(self):
+        """رسم منطقة التوقيعات في أسفل التقرير"""
+        # التأكد من وجود مساحة كافية
+        if self.get_y() > 250: self.add_page()
+        
+        self.ln(10)
+        y = self.get_y()
+        
+        self.set_font(self.font_family, 'B', 11)
+        
+        # المواقع
+        w = 63 # 190 / 3
+        
+        # المربي
+        self.set_xy(10 + w*2, y)
+        self.cell(w, 8, self.process_text("توقيع المربي(ة):"), 0, 0, 'C')
+        
+        # المدير
+        self.set_xy(10 + w, y)
+        self.cell(w, 8, self.process_text("توقيع المدير(ة):"), 0, 0, 'C')
+        
+        # الولي
+        self.set_xy(10, y)
+        self.cell(w, 8, self.process_text("إمضاء الولي:"), 0, 0, 'C')
+        
+        self.ln(25) # مساحة للتوقيع
+        
+        # خطوط للتوقيع (اختياري)
+        self.set_draw_color(150)
+        self.line(25, y+25, 60, y+25)    # الولي
+        self.line(88, y+25, 123, y+25)   # المدير
+        self.line(151, y+25, 186, y+25)  # المربي
 
     def generate(self, evaluation_data, summary_stats, narrative, action_plan):
         self.add_page()
         
-        # ملخص الرموز والإحصائيات
-        self.set_font(self.font_family, '', 9)
-        info = f"النسبة: {summary_stats['score']:.1f}% | نقاط الضعف: {summary_stats['weaknesses_count']}"
-        key = "(+) مكتسب | (┴) في طريق الاكتساب | (-) غير مكتسب"
+        # 1. بيانات التلميذ
+        self.draw_student_details()
         
-        self.set_fill_color(240, 240, 240)
-        self.cell(90, 8, self.process_text(info), 1, 0, 'C', 1)
-        self.cell(100, 8, self.process_text(key), 1, 1, 'C', 1)
-        self.ln(2)
-
-        # ---------------------------------------------------------
-        # الجدول الأول: المواد الدراسية (التحصيل الأكاديمي)
-        # ---------------------------------------------------------
-        # نريد إعادة هيكلة البيانات لتكون: { 'لغة عربية': [(مهارة, درجة)...], 'رياضيات': [...] }
+        # 2. مفتاح الرموز الجديد
+        self.draw_legend()
+        
+        # 3. الجداول
         academic_grouped = {}
         if "academic" in evaluation_data:
             for subject, skills_dict in evaluation_data["academic"].items():
@@ -191,83 +316,49 @@ class PDFReport(FPDF):
                         skill_list.append((skill, score))
                     academic_grouped[subject] = skill_list
         
-        # رسم الجدول (4 مواد في الصف الواحد)
-        # الأعمدة في الجدول = عدد المواد في الصف. 
-        # لكل مادة عمود خاص يحتوي مهاراتها تحته.
         self.draw_columnar_table('التحصيل الدراسي', academic_grouped, columns_count=4)
         
-        self.ln(3)
-
-        # ---------------------------------------------------------
-        # الجدول الثاني: المهارات السلوكية
-        # ---------------------------------------------------------
-        # البيانات تأتي: MainCategory -> SubCategory -> Skills
-        # سنعتبر "SubCategory" هي "المادة/المجال" ونضعها في الرأس
         behavioral_grouped = {}
         if "behavioral" in evaluation_data:
             for main, subs in evaluation_data["behavioral"].items():
                 if isinstance(subs, dict):
                     for sub_cat, skills_dict in subs.items():
-                        # اسم الرأس سيكون الفئة الفرعية (مثلاً: "انضباط صفي")
-                        # أو دمجها مع الرئيسي إذا لزم الأمر
-                        header_name = sub_cat 
-                        
                         skill_list = []
                         if isinstance(skills_dict, dict):
                             for skill, score in skills_dict.items():
                                 skill_list.append((skill, score))
-                        behavioral_grouped[header_name] = skill_list
+                        # دمج الفئة الرئيسية مع الفرعية في العنوان
+                        full_name = f"{sub_cat}" 
+                        behavioral_grouped[full_name] = skill_list
 
-        # رسم الجدول السلوكي (3 مجالات في الصف الواحد ليكون أوسع قليلاً)
         self.draw_columnar_table('المهارات السلوكية والشخصية', behavioral_grouped, columns_count=3)
 
-        # ---------------------------------------------------------
-        # الملاحظات
-        # ---------------------------------------------------------
-        # التحقق من المساحة المتبقية
-        if self.get_y() < 270:
-            self.ln(3)
+        # 4. الملاحظات
+        if self.get_y() < 240:
+            self.ln(5)
             self.set_font(self.font_family, 'B', 11)
-            self.cell(0, 6, self.process_text('ملاحظات وتوصيات'), 'B', 1, 'R')
-            self.set_font(self.font_family, '', 9)
-            text = narrative
-            if action_plan:
-               text += " | خطة مقترحة: " + " - ".join([f"{k}: {v}" for k,v in action_plan])
+            self.cell(0, 8, self.process_text('ملاحظات وتوصيات:'), 'B', 1, 'R')
+            self.set_font(self.font_family, '', 10)
             
-            self.multi_cell(0, 5, self.process_text(text), 0, 'R')
+            # دمج الملاحظات مع الخطة
+            full_text = narrative
+            if action_plan:
+                full_text += "\n\nخطة العمل المقترحة:\n" + "\n".join([f"- {k}: {v}" for k,v in action_plan])
+            
+            self.multi_cell(0, 6, self.process_text(full_text), 0, 'R')
+
+        # 5. التذييل والتوقيعات
+        self.draw_signatures_footer()
 
         return bytes(self.output())
 
-def create_pdf(student_name, data, narrative, action_plan):
+def create_pdf(student_name, student_info, data, narrative, action_plan):
     try:
-        pdf = PDFReport(student_name)
+        # نمرر student_info للكلاس
+        pdf = PDFReport(student_name, student_info)
         
-        # حساب الإحصائيات (نفس المنطق السابق)
-        total = 0
-        max_score = 0
-        weaknesses = 0
-        
-        # Helper to traverse
-        def calc_stats(d):
-            t, m, w = 0, 0, 0
-            if isinstance(d, dict):
-                for k, v in d.items():
-                    if isinstance(v, (int, float)): # Reached score
-                        t += v
-                        m += 2
-                        if v == 0: w += 1
-                    else:
-                        st, sm, sw = calc_stats(v)
-                        t += st; m += sm; w += sw
-            return t, m, w
-
-        t1, m1, w1 = calc_stats(data.get("academic", {}))
-        t2, m2, w2 = calc_stats(data.get("behavioral", {}))
-        
-        final_score = ((t1+t2) / (m1+m2) * 100) if (m1+m2) > 0 else 0
-        stats = {"score": final_score, "weaknesses_count": w1+w2}
-        
-        pdf_bytes = pdf.generate(data, stats, narrative, action_plan)
+        # حساب إحصائيات وهمية للملخص (لم تعد تظهر في الأعلى ولكن نحتاجها للمنطق)
+        pdf_bytes = pdf.generate(data, {}, narrative, action_plan)
         return pdf_bytes, None
     except Exception as e:
         import traceback

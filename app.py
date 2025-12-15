@@ -40,7 +40,7 @@ with st.sidebar:
         "تقييم المهارات السلوكية", 
         "التقرير التشخيصي",
         "لوحة التحكم"
-    ], index=3) # الافتراضي على التقرير للتجربة السريعة
+    ], index=3) 
     
     st.markdown("---")
     
@@ -89,8 +89,6 @@ elif menu == "تقييم المواد الدراسية":
         st.warning("الرجاء إضافة تلاميذ.")
     else:
         student = st.selectbox("اختر التلميذ:", list(st.session_state.students.keys()))
-        
-        # عرض معلومات الطالب للتأكد
         info = st.session_state.students[student]["info"]
         st.caption(f"البيانات: {info.get('class_level')} | {info.get('gender')}")
         
@@ -98,19 +96,18 @@ elif menu == "تقييم المواد الدراسية":
             current = st.session_state.students[student].get("evaluations", {}).get("academic", {})
             new_data = {}
             
+            # هنا يتم استخدام ACADEMIC_SUBJECTS من data_manager
             tabs = st.tabs(list(dm.ACADEMIC_SUBJECTS.keys()))
             for i, (subj, skills) in enumerate(dm.ACADEMIC_SUBJECTS.items()):
                 with tabs[i]:
                     subj_data = {}
                     for skill in skills:
-                        # 1=في طريق الاكتساب (الافتراضي)
                         prev = current.get(subj, {}).get(skill, 1) 
                         val = st.radio(skill, dm.RATING_OPTIONS, index=prev, key=f"ac_{student}_{skill}", horizontal=True)
                         subj_data[skill] = dm.RATING_MAP[val]
                     new_data[subj] = subj_data
             
             if st.form_submit_button("حفظ التقييم الأكاديمي"):
-                # الحفظ
                 data = st.session_state.students
                 if "evaluations" not in data[student]: data[student]["evaluations"] = {}
                 data[student]["evaluations"]["academic"] = new_data
@@ -131,6 +128,7 @@ elif menu == "تقييم المهارات السلوكية":
             current = st.session_state.students[student].get("evaluations", {}).get("behavioral", {})
             new_data = {}
             
+            # هنا يتم استخدام BEHAVIORAL_SKILLS من data_manager
             tabs = st.tabs(list(dm.BEHAVIORAL_SKILLS.keys()))
             for i, (main, subs) in enumerate(dm.BEHAVIORAL_SKILLS.items()):
                 with tabs[i]:
@@ -156,7 +154,7 @@ elif menu == "تقييم المهارات السلوكية":
                 st.toast("تم الحفظ!", icon="✅")
 
 # ==========================================
-# 6. التقرير التشخيصي (تم التحديث هنا) 🌟
+# 6. التقرير التشخيصي (النسخة النهائية)
 # ==========================================
 elif menu == "التقرير التشخيصي":
     st.header("📈 التقرير التشخيصي الشامل")
@@ -171,17 +169,15 @@ elif menu == "التقرير التشخيصي":
         info = student_data["info"]
         evals = student_data.get("evaluations", {})
         
-        # 2. استخراج الجنس (مهم جداً للغة)
+        # 2. استخراج الجنس
         gender = info.get("gender", "ذكر")
         
-        # 3. استدعاء التحليل الذكي (نمرر الجنس)
-        # سيقوم data_manager بصياغة الجمل بناءً على المذكر/المؤنث
+        # 3. التحليل الذكي (يتم التعامل مع اللغة داخل data_manager الآن)
         narrative, action_plan = dm.analyze_student_performance(student, evals, gender)
         
-        # 4. عرض النتائج
+        # 4. عرض النتائج بالأرقام
         scores = dm.calculate_scores(evals)
         
-        # البطاقات العلوية
         c1, c2, c3 = st.columns(3)
         c1.metric("التحصيل الدراسي", f"{scores['academic_percentage']:.0f}%")
         c2.metric("السلوك والمواظبة", f"{scores['behavioral_percentage']:.0f}%")
@@ -190,12 +186,12 @@ elif menu == "التقرير التشخيصي":
         
         st.divider()
         
-        # عرض التحليل اللغوي
+        # 5. عرض التحليل والخطة (على الشاشة)
         col_text, col_plan = st.columns([2, 1])
         
         with col_text:
             st.subheader("📝 التحليل التربوي")
-            # صندوق منسق للنص
+            # صندوق منسق للنص (يظهر النص صحيح لغوياً الآن)
             st.markdown(
                 f"""
                 <div style="background-color:#f8f9fa; padding:20px; border-radius:10px; border-right: 5px solid #2e86de; font-size:16px; line-height:1.8; color:#2c3e50;">
@@ -215,10 +211,9 @@ elif menu == "التقرير التشخيصي":
 
         st.divider()
         
-        # 5. زر توليد PDF (التحديث الأخير)
+        # 6. قسم PDF
         st.subheader("📄 إصدار التقرير الرسمي")
         
-        # مفتاح فريد لتخزين الـ PDF في الذاكرة (لتجنب إعادة التوليد)
         pdf_key = f"pdf_{student}_{evals.get('last_update', 'new')}"
         
         if pdf_key not in st.session_state:
@@ -226,7 +221,7 @@ elif menu == "التقرير التشخيصي":
                 try:
                     import pdf_generator
                     with st.spinner("جاري صياغة التقرير، رسم الجداول، وضبط التنسيق..."):
-                        # نمرر النص المصحح (narrative) والبيانات الكاملة
+                        # نمرر النص المصحح (narrative)
                         pdf_bytes, error = pdf_generator.create_pdf(
                             student, info, evals, narrative, action_plan
                         )
@@ -239,7 +234,6 @@ elif menu == "التقرير التشخيصي":
                 except ImportError:
                     st.error("المكتبات مفقودة (fpdf2, arabic-reshaper, python-bidi)")
         
-        # إذا كان الملف جاهزاً
         if pdf_key in st.session_state:
             c_d1, c_d2 = st.columns([1, 4])
             with c_d1:
@@ -271,7 +265,6 @@ elif menu == "لوحة التحكم":
             })
         st.dataframe(pd.DataFrame(df), use_container_width=True)
         
-        # زر حذف البيانات (للتنظيف)
         if st.button("🗑️ حذف جميع البيانات"):
             st.session_state.students = {}
             dm.save_data({})

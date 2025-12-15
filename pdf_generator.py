@@ -138,7 +138,7 @@ class PDFReport(FPDF):
         self.ln(12)
 
     # =========================================================================
-    # 3. الجدول العمودي (3 أعمدة لتفادي الأخطاء)
+    # 3. الجدول العمودي
     # =========================================================================
     def draw_columnar_table(self, title, data_groups, columns_count):
         if not data_groups: return
@@ -157,6 +157,7 @@ class PDFReport(FPDF):
         
         for i in range(0, total_groups, columns_count):
             batch = groups_list[i : i + columns_count]
+            
             top_y = self.get_y()
             if top_y > 240: 
                 self.add_page()
@@ -215,14 +216,15 @@ class PDFReport(FPDF):
             self.set_y(max_y_reached + 5)
 
     # =========================================================================
-    # 4. قسم التحليل (تم الإصلاح: محاذاة النص للخطة العلاجية)
+    # 4. قسم التحليل (تم حذف الخطة العلاجية نهائياً)
     # =========================================================================
     def draw_analysis_section(self, narrative, action_plan):
+        # إضافة صفحة جديدة للتحليل والتوقيعات
         self.add_page()
         
         # العنوان الرئيسي
         self.set_font(self.font_family, 'B', 14)
-        self.cell(0, 10, self.process_text("التحليل التربوي والخطة العلاجية"), 0, 1, 'C')
+        self.cell(0, 10, self.process_text("الملاحظات الختامية"), 0, 1, 'C')
         self.ln(5)
         
         # --- التحليل التربوي ---
@@ -233,45 +235,26 @@ class PDFReport(FPDF):
         self.set_font(self.font_family, '', 11)
         self.ln(2)
         
-        # كتابة التحليل (صندوق عريض)
+        # كتابة التحليل
         self.multi_cell(0, 7, self.process_text(narrative), 0, 'R')
-        self.ln(8)
+        self.ln(5)
 
-        # --- الخطة العلاجية ---
-        if action_plan:
-            self.set_fill_color(255, 248, 225) 
-            self.set_font(self.font_family, 'B', 12)
-            self.cell(0, 10, self.process_text("💡 الحلول المقترحة (الخطة العلاجية):"), 0, 1, 'R', True)
-            self.ln(2)
-            
-            self.set_font(self.font_family, '', 11)
-            
-            for skill, recommendation in action_plan:
-                if self.get_y() > 270: self.add_page()
-                
-                full_text = f"• {skill}: {recommendation}"
-                
-                # هام جداً: نعيد المؤشر إلى اليسار (10) ليكون عرض الصندوق كبيراً
-                self.set_x(10)
-                
-                # w=0 تعني الامتداد لنهاية الهامش الأيمن (مساحة واسعة)
-                # align='R' تعني النص يبدأ من اليمين
-                self.multi_cell(0, 7, self.process_text(full_text), 0, 'R')
-            
-            self.ln(5)
+        # (تم حذف كود طباعة الخطة العلاجية من هنا)
 
     # =========================================================================
     # 5. التوقيعات
     # =========================================================================
     def draw_signatures_footer(self):
+        # التأكد من وجود مساحة كافية
         current_y = self.get_y()
+        
+        # إذا بقي أقل من 5 سم في الصفحة، نفتح صفحة جديدة
         if current_y > 240:
             self.add_page()
-            
-        if self.get_y() < 220:
-             self.set_y(220)
+            self.ln(10)
         else:
-             self.ln(10)
+            # مسافة فاصلة جيدة
+            self.ln(20)
 
         y = self.get_y()
         self.set_font(self.font_family, 'B', 11)
@@ -302,6 +285,7 @@ class PDFReport(FPDF):
         self.draw_student_details()
         self.draw_legend()
         
+        # الجداول (3 أعمدة)
         academic_grouped = {}
         if "academic" in evaluation_data:
             for subject, skills_dict in evaluation_data["academic"].items():
@@ -326,6 +310,8 @@ class PDFReport(FPDF):
                         behavioral_grouped[full_name] = skill_list
 
         self.draw_columnar_table('المهارات السلوكية والشخصية', behavioral_grouped, columns_count=3)
+        
+        # الصفحة الثانية: التحليل فقط (بدون خطة) + التوقيعات
         self.draw_analysis_section(narrative, action_plan)
         self.draw_signatures_footer()
 

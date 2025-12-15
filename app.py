@@ -49,8 +49,8 @@ with st.sidebar:
         st.info("""
         **المميزات الجديدة:**
         1. تقارير PDF احترافية مع رموز (✔ / ✖).
-        2. تحليل ذكي لنقاط الضعف وعرض الحلول.
-        3. حساب نسب التحكم لكل مادة.
+        2. تحليل ذكي ومخصص لنقاط القوة والضعف.
+        3. مراعاة الصيغة اللغوية (مذكر/مؤنث).
         4. إمكانية توقيع الولي والإدارة.
         """)
     
@@ -246,7 +246,7 @@ elif menu == "تقييم المهارات السلوكية":
                 st.toast("تم الحفظ بنجاح!", icon="✅")
 
 # ==========================================
-# 6. القسم الرابع: التقرير التشخيصي (تم استعادة عرض التحليل والحلول)
+# 6. القسم الرابع: التقرير التشخيصي (Logic Updated)
 # ==========================================
 elif menu == "التقرير التشخيصي":
     st.header("📈 التقرير التشخيصي الشامل")
@@ -280,26 +280,52 @@ elif menu == "التقرير التشخيصي":
         st.divider()
 
         # ---------------------------------------------------------
-        # عرض التحليل والحلول على الشاشة
+        # عرض التحليل والحلول على الشاشة (مع التعديلات الجديدة)
         # ---------------------------------------------------------
         
-        # جلب التحليل والخطة من Logic
-        narrative, action_plan = dm.analyze_student_performance(selected_student, data)
+        # 1. تحليل الأداء (الحصول على النص الخام + الخطة)
+        raw_narrative, action_plan = dm.analyze_student_performance(selected_student, data)
+        
+        # 2. معالجة الجنس (Gender Processing) لتصحيح اللغة العربية
+        gender = student_info.get("gender", "ذكر")
+        
+        if gender == "أنثى":
+            final_narrative = raw_narrative.replace("المتعلم", "المتعلمة")
+            final_narrative = final_narrative.replace("أبان", "أبانت")
+            final_narrative = final_narrative.replace("أظهر", "أظهرت")
+            final_narrative = final_narrative.replace("يتميز", "تتميز")
+            final_narrative = final_narrative.replace("يتمتع", "تتمتع")
+            final_narrative = final_narrative.replace("يميل", "تميل")
+            final_narrative = final_narrative.replace("يبدي", "تبدي")
+            final_narrative = final_narrative.replace("هو", "هي")
+            final_narrative = final_narrative.replace("عنه", "عنها")
+            final_narrative = final_narrative.replace("أداءه", "أداؤها")
+            final_narrative = final_narrative.replace("بنفسه", "بنفسها")
+            final_narrative = final_narrative.replace("إنجازه", "إنجازها")
+        else:
+            final_narrative = raw_narrative # كما هي (صيغة المذكر)
 
         col_analysis, col_solutions = st.columns(2)
         
         # عرض التحليل (أسباب الصعوبات ونقاط القوة)
         with col_analysis:
-            st.subheader("📝 التحليل النوعي")
-            st.info(narrative, icon="ℹ️")
+            st.subheader("📝 التحليل النفسي والتربوي")
+            # عرض النص الجميل في صندوق HTML منسق
+            st.markdown(
+                f"""
+                <div style="background-color:#f9f9f9; padding:15px; border-radius:10px; border-right: 5px solid #4CAF50; direction: rtl; text-align: right; line-height: 1.8;">
+                {final_narrative.replace(chr(10), '<br>')}
+                </div>
+                """, 
+                unsafe_allow_html=True
+            )
             
-            # عرض نقاط الضعف المحددة
+            # عرض نقاط الضعف المحددة أسفل التحليل إذا وجدت
             if scores['weaknesses']:
-                st.markdown("##### ⚠️ صعوبات تم رصدها:")
-                for w in scores['weaknesses']:
+                st.markdown("---")
+                st.markdown("##### ⚠️ صعوبات تتطلب متابعة:")
+                for w in scores['weaknesses'][:5]: # عرض أهم 5 فقط
                     st.error(w)
-            else:
-                st.success("لم يتم رصد صعوبات جوهرية.")
 
         # عرض الحلول المقترحة (الخطة العلاجية)
         with col_solutions:
@@ -318,8 +344,9 @@ elif menu == "التقرير التشخيصي":
         # 3. أزرار التحميل (Text & PDF)
         
         # --- تحميل التقرير النصي ---
+        # نمرر final_narrative المصحح لغوياً
         report_text = dm.generate_text_report(
-            selected_student, student_info, data, scores, narrative, action_plan
+            selected_student, student_info, data, scores, final_narrative, action_plan
         )
         st.download_button("📄 تحميل مسودة نصية (TXT)", report_text, f"report_{selected_student}.txt")
 
@@ -336,11 +363,12 @@ elif menu == "التقرير التشخيصي":
                 try:
                     import pdf_generator
                     with st.spinner("جاري الرسم ومعالجة الخطوط العربية..."):
+                        # نستدعي الدالة ونمرر final_narrative بدلاً من narrative
                         pdf_bytes, error_msg = pdf_generator.create_pdf(
                             selected_student, 
                             student_info, 
                             data, 
-                            narrative, 
+                            final_narrative, # <-- النص المصحح لغوياً
                             action_plan
                         )
                         

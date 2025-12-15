@@ -5,13 +5,13 @@ import random
 DATA_FILE = "students_data.json"
 
 # ==============================================================================
-# 1. الثوابت والبيانات (Constants & Data)
+# 1. الثوابت والبيانات (Constants & Data) - هذا هو الجزء الذي كان ناقصاً
 # ==============================================================================
 
 RATING_OPTIONS = ["غير مكتسب", "في طريق الاكتساب", "مكتسب"]
 RATING_MAP = {"غير مكتسب": 0, "في طريق الاكتساب": 1, "مكتسب": 2}
 
-# --- المواد الدراسية (كانت ناقصة) ---
+# --- قائمة المواد الدراسية ---
 ACADEMIC_SUBJECTS = {
     "اللغة العربية": [
         "يسمي الحروف الهجائية المدروسة",
@@ -40,7 +40,7 @@ ACADEMIC_SUBJECTS = {
     ],
 }
 
-# --- المهارات السلوكية (كانت ناقصة) ---
+# --- قائمة المهارات السلوكية ---
 BEHAVIORAL_SKILLS = {
     "الوظائف التنفيذية": {
         "الانتباه والذاكرة": [
@@ -166,20 +166,22 @@ def calculate_scores(evaluations):
     if "academic" in evaluations:
         for subj, skills in evaluations["academic"].items():
             for skill, score in skills.items():
-                academic_total += score
-                academic_max += 2
-                if score == 0: weaknesses.append(f"{subj}: {skill}")
-                elif score == 2: strengths.append(skill)
+                if isinstance(score, int):
+                    academic_total += score
+                    academic_max += 2
+                    if score == 0: weaknesses.append(f"{subj}: {skill}")
+                    elif score == 2: strengths.append(skill)
     
     # حساب السلوكي
     if "behavioral" in evaluations:
         for main, subs in evaluations["behavioral"].items():
             for sub, skills in subs.items():
                 for skill, score in skills.items():
-                    behavioral_total += score
-                    behavioral_max += 2
-                    if score == 0: weaknesses.append(f"{main}: {skill}")
-                    elif score == 2: strengths.append(skill)
+                    if isinstance(score, int):
+                        behavioral_total += score
+                        behavioral_max += 2
+                        if score == 0: weaknesses.append(f"{main}: {skill}")
+                        elif score == 2: strengths.append(skill)
 
     ac_pct = (academic_total / academic_max * 100) if academic_max > 0 else 0
     beh_pct = (behavioral_total / behavioral_max * 100) if behavioral_max > 0 else 0
@@ -220,14 +222,12 @@ def analyze_student_performance(name, data, gender="ذكر"):
     narrative_parts.append(opening)
 
     # --- 2. التحليل المعرفي ---
-    # محاولة بسيطة لتقدير النمط من الدرجات
     if ac_score < 50:
         cog_text = ANALYSIS_TEMPLATES["cognitive_style"]["struggling"]
     elif ac_score >= 85:
-        cog_text = ANALYSIS_TEMPLATES["cognitive_style"]["analytical"] # افتراضي للمتفوقين
+        cog_text = ANALYSIS_TEMPLATES["cognitive_style"]["analytical"]
     else:
         cog_text = ANALYSIS_TEMPLATES["cognitive_style"]["balanced"]
-        
     narrative_parts.append(cog_text)
 
     # --- 3. التحليل السلوكي ---
@@ -240,13 +240,11 @@ def analyze_student_performance(name, data, gender="ذكر"):
     narrative_parts.append(soc_text)
 
     # --- 4. عادات العمل ---
-    # اختيار عشوائي ذكي أو بناءً على القوة/الضعف
     weakness_str = " ".join(stats['weaknesses'])
     if "تشتت" in weakness_str or "تركيز" in weakness_str:
         work_text = ANALYSIS_TEMPLATES["work_habits"]["distracted"]
     else:
         work_text = ANALYSIS_TEMPLATES["work_habits"]["focused"] if ac_score > 70 else "يحتاج إلى مزيد من المثابرة لإتمام المهام."
-    
     narrative_parts.append(work_text)
 
     # --- 5. الخاتمة ---

@@ -44,7 +44,7 @@ class PDFReport(FPDF):
         self.cell(0, 10, self.process_text(f'صفحة {self.page_no()}'), 0, 0, 'C')
 
     # =========================================================================
-    # 1. تفاصيل الطالب (منسقة بدقة لمنع التداخل)
+    # 1. تفاصيل الطالب
     # =========================================================================
     def draw_student_details(self):
         self.set_y(10)
@@ -59,47 +59,37 @@ class PDFReport(FPDF):
         self.set_draw_color(0) 
 
         y = start_y + 8
-        # --- الصف الأول ---
-        # الاسم واللقب (العنوان)
+        # الاسم واللقب
         self.set_xy(160, y) 
         self.set_font(self.font_family, '', 11)
         self.cell(30, 6, self.process_text("الاسم واللقب:"), 0, 0, 'R') 
-        
-        # الاسم واللقب (القيمة)
         self.set_xy(100, y) 
         self.set_font(self.font_family, 'B', 12) 
         self.cell(60, 6, self.process_text(self.student_name), 0, 0, 'R')
 
-        # المستوى (العنوان)
+        # المستوى
         self.set_xy(65, y)
         self.set_font(self.font_family, '', 11)
         self.cell(25, 6, self.process_text("المستوى:"), 0, 0, 'R')
-        
-        # المستوى (القيمة)
         self.set_xy(15, y)
         self.set_font(self.font_family, 'B', 11)
         lvl = self.student_info.get('class_level', 'غير محدد')
         self.cell(50, 6, self.process_text(lvl), 0, 0, 'R')
 
         y += 12
-        # --- الصف الثاني ---
-        # تاريخ الميلاد (العنوان)
+        # تاريخ الميلاد
         self.set_xy(160, y)
         self.set_font(self.font_family, '', 11)
         self.cell(30, 6, self.process_text("تاريخ الميلاد:"), 0, 0, 'R')
-        
-        # تاريخ الميلاد (القيمة)
         self.set_xy(100, y)
         self.set_font(self.font_family, 'B', 11)
         dob = self.student_info.get('dob', '-')
         self.cell(60, 6, self.process_text(dob), 0, 0, 'R')
 
-        # الجنس (العنوان)
+        # الجنس
         self.set_xy(65, y)
         self.set_font(self.font_family, '', 11)
         self.cell(25, 6, self.process_text("الجنس:"), 0, 0, 'R')
-        
-        # الجنس (القيمة)
         self.set_xy(15, y)
         self.set_font(self.font_family, 'B', 11)
         gender = self.student_info.get('gender', '-')
@@ -108,7 +98,7 @@ class PDFReport(FPDF):
         self.ln(20)
 
     # =========================================================================
-    # 2. رسم الرموز
+    # 2. الرموز والمفتاح
     # =========================================================================
     def draw_custom_symbol(self, x, y, size, score):
         self.set_line_width(0.4)
@@ -148,7 +138,7 @@ class PDFReport(FPDF):
         self.ln(12)
 
     # =========================================================================
-    # 3. الجدول العمودي (خط أصغر + 3 أعمدة لتفادي الأخطاء)
+    # 3. الجدول العمودي (3 أعمدة لتفادي الأخطاء)
     # =========================================================================
     def draw_columnar_table(self, title, data_groups, columns_count):
         if not data_groups: return
@@ -159,8 +149,6 @@ class PDFReport(FPDF):
         
         page_width = 190
         col_width = page_width / columns_count
-        
-        # نسب العرض: 88% للنص و 12% للرمز لتوفير مساحة للكتابة
         skill_w = col_width * 0.88
         mark_w = col_width * 0.12
         
@@ -169,17 +157,15 @@ class PDFReport(FPDF):
         
         for i in range(0, total_groups, columns_count):
             batch = groups_list[i : i + columns_count]
-            
             top_y = self.get_y()
             if top_y > 240: 
                 self.add_page()
                 top_y = self.get_y()
             
             current_x = self.get_x()
-            self.set_font(self.font_family, 'B', 9) # حجم الخط للعناوين
+            self.set_font(self.font_family, 'B', 9) 
             self.set_fill_color(245, 245, 245)
             
-            # رؤوس الأعمدة
             for subject_name, skills in batch:
                 total_score = sum(score for _, score in skills)
                 max_score = len(skills) * 2
@@ -195,7 +181,7 @@ class PDFReport(FPDF):
             max_y_reached = content_start_y
             
             current_x = 10 
-            self.set_font(self.font_family, '', 8) # حجم الخط للمهارات (صغير لتفادي الخطأ)
+            self.set_font(self.font_family, '', 8) 
             row_h = 6
             
             for subject_name, skills in batch:
@@ -212,7 +198,6 @@ class PDFReport(FPDF):
                     self.multi_cell(skill_w, row_h, self.process_text(skill_name), border=1, align='R')
                     
                     actual_h = self.get_y() - col_y
-                    
                     self.set_xy(current_x + skill_w, col_y)
                     self.rect(current_x + skill_w, col_y, mark_w, actual_h)
                     
@@ -230,12 +215,12 @@ class PDFReport(FPDF):
             self.set_y(max_y_reached + 5)
 
     # =========================================================================
-    # 4. قسم التحليل (تم إصلاح العرض الأفقي)
+    # 4. قسم التحليل (تم الإصلاح: محاذاة النص للخطة العلاجية)
     # =========================================================================
     def draw_analysis_section(self, narrative, action_plan):
-        # إضافة صفحة جديدة إجبارياً للتحليل
         self.add_page()
         
+        # العنوان الرئيسي
         self.set_font(self.font_family, 'B', 14)
         self.cell(0, 10, self.process_text("التحليل التربوي والخطة العلاجية"), 0, 1, 'C')
         self.ln(5)
@@ -247,10 +232,12 @@ class PDFReport(FPDF):
         
         self.set_font(self.font_family, '', 11)
         self.ln(2)
+        
+        # كتابة التحليل (صندوق عريض)
         self.multi_cell(0, 7, self.process_text(narrative), 0, 'R')
         self.ln(8)
 
-        # --- الخطة العلاجية (تم إصلاح المحاذاة) ---
+        # --- الخطة العلاجية ---
         if action_plan:
             self.set_fill_color(255, 248, 225) 
             self.set_font(self.font_family, 'B', 12)
@@ -262,15 +249,14 @@ class PDFReport(FPDF):
             for skill, recommendation in action_plan:
                 if self.get_y() > 270: self.add_page()
                 
-                # النص الكامل
-                text = f"• {skill}: {recommendation}"
+                full_text = f"• {skill}: {recommendation}"
                 
-                # *** التصحيح هنا ***
-                # إعادة المؤشر إلى بداية السطر الطبيعية (10) لضمان استخدام كامل العرض
+                # هام جداً: نعيد المؤشر إلى اليسار (10) ليكون عرض الصندوق كبيراً
                 self.set_x(10)
                 
-                # استخدام multi_cell بعرض كامل الصفحة (w=0) مع محاذاة لليمين
-                self.multi_cell(0, 7, self.process_text(text), 0, 'R')
+                # w=0 تعني الامتداد لنهاية الهامش الأيمن (مساحة واسعة)
+                # align='R' تعني النص يبدأ من اليمين
+                self.multi_cell(0, 7, self.process_text(full_text), 0, 'R')
             
             self.ln(5)
 
@@ -278,12 +264,10 @@ class PDFReport(FPDF):
     # 5. التوقيعات
     # =========================================================================
     def draw_signatures_footer(self):
-        # التأكد من وجود مساحة في أسفل الصفحة الثانية
         current_y = self.get_y()
         if current_y > 240:
             self.add_page()
             
-        # الدفع للأسفل قليلاً ليكون الشكل جمالياً
         if self.get_y() < 220:
              self.set_y(220)
         else:
@@ -318,7 +302,6 @@ class PDFReport(FPDF):
         self.draw_student_details()
         self.draw_legend()
         
-        # 1. المواد الدراسية (3 أعمدة لتجنب الأخطاء)
         academic_grouped = {}
         if "academic" in evaluation_data:
             for subject, skills_dict in evaluation_data["academic"].items():
@@ -330,7 +313,6 @@ class PDFReport(FPDF):
         
         self.draw_columnar_table('التحصيل الدراسي', academic_grouped, columns_count=3)
         
-        # 2. المهارات السلوكية (3 أعمدة)
         behavioral_grouped = {}
         if "behavioral" in evaluation_data:
             for main, subs in evaluation_data["behavioral"].items():
@@ -344,8 +326,6 @@ class PDFReport(FPDF):
                         behavioral_grouped[full_name] = skill_list
 
         self.draw_columnar_table('المهارات السلوكية والشخصية', behavioral_grouped, columns_count=3)
-        
-        # 3. التحليل والتوقيعات (صفحة 2)
         self.draw_analysis_section(narrative, action_plan)
         self.draw_signatures_footer()
 

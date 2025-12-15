@@ -138,11 +138,12 @@ class PDFReport(FPDF):
         self.ln(12)
 
     # =========================================================================
-    # 3. الجدول العمودي (تم تصحيح الأبعاد لتجنب الخطأ)
+    # 3. الجدول العمودي (مصحح لتفادي الأخطاء)
     # =========================================================================
     def draw_columnar_table(self, title, data_groups, columns_count):
         if not data_groups: return
 
+        # العنوان
         self.set_font(self.font_family, 'B', 12)
         self.set_fill_color(230, 230, 230)
         self.cell(0, 10, self.process_text(title), ln=True, align='C', fill=True, border=1)
@@ -150,9 +151,9 @@ class PDFReport(FPDF):
         page_width = 190
         col_width = page_width / columns_count
         
-        # --- التعديل الأول: زيادة مساحة النص وتقليل مساحة الرمز ---
-        skill_w = col_width * 0.85 # زيادة إلى 85%
-        mark_w = col_width * 0.15  # تقليل إلى 15%
+        # تخصيص مساحة أكبر للنص (85%) لتجنب خطأ المساحة
+        skill_w = col_width * 0.85 
+        mark_w = col_width * 0.15  
         
         groups_list = list(data_groups.items())
         total_groups = len(groups_list)
@@ -165,10 +166,11 @@ class PDFReport(FPDF):
                 top_y = self.get_y()
             
             current_x = self.get_x()
-            # --- التعديل الثاني: تصغير خط العناوين قليلاً ---
+            # تصغير خط العناوين إلى 9
             self.set_font(self.font_family, 'B', 9) 
             self.set_fill_color(245, 245, 245)
             
+            # رسم رؤوس الأعمدة
             for subject_name, skills in batch:
                 total_score = sum(score for _, score in skills)
                 max_score = len(skills) * 2
@@ -184,8 +186,8 @@ class PDFReport(FPDF):
             max_y_reached = content_start_y
             
             current_x = 10 
-            # --- التعديل الثالث: تصغير خط المهارات لتجنب الخطأ ---
-            self.set_font(self.font_family, '', 8) 
+            # تصغير خط المهارات إلى 7.5 لتفادي الخطأ
+            self.set_font(self.font_family, '', 7.5) 
             row_h = 7
             
             for subject_name, skills in batch:
@@ -194,8 +196,8 @@ class PDFReport(FPDF):
                     if col_y > 270: 
                         self.set_xy(current_x, col_y)
                         self.set_font(self.font_family, 'I', 7)
-                        self.cell(skill_w + mark_w, row_h, self.process_text("...يتبع"), 0, 0, 'C')
-                        self.set_font(self.font_family, '', 8)
+                        self.cell(skill_w + mark_w, row_h, self.process_text("..."), 0, 0, 'C')
+                        self.set_font(self.font_family, '', 7.5)
                         break 
 
                     self.set_xy(current_x, col_y)
@@ -206,7 +208,7 @@ class PDFReport(FPDF):
                     self.set_xy(current_x + skill_w, col_y)
                     self.rect(current_x + skill_w, col_y, mark_w, actual_h)
                     
-                    symbol_size = 3.5 # تصغير الرمز قليلاً ليتناسب مع العرض الجديد
+                    symbol_size = 3.5 
                     sym_x = current_x + skill_w + (mark_w - symbol_size)/2
                     sym_y = col_y + (actual_h - symbol_size)/2
                     self.draw_custom_symbol(sym_x, sym_y, symbol_size, score)
@@ -301,7 +303,9 @@ class PDFReport(FPDF):
                         skill_list.append((skill, score))
                     academic_grouped[subject] = skill_list
         
-        self.draw_columnar_table('التحصيل الدراسي', academic_grouped, columns_count=4)
+        # === التعديل الهام هنا ===
+        # تم تقليل عدد الأعمدة من 4 إلى 3 لإعطاء مساحة أكبر للنص ومنع الخطأ
+        self.draw_columnar_table('التحصيل الدراسي', academic_grouped, columns_count=3)
         
         behavioral_grouped = {}
         if "behavioral" in evaluation_data:
@@ -330,3 +334,4 @@ def create_pdf(student_name, student_info, data, narrative, action_plan):
         import traceback
         traceback.print_exc()
         return None, str(e)
+

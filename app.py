@@ -15,7 +15,6 @@ def load_css():
         with open("assets/style.css", "r", encoding="utf-8") as f:
             st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
     except FileNotFoundError:
-        # تنسيق احتياطي في حال عدم وجود الملف
         st.markdown("""
         <style>
             html, body, [class*="css"] { direction: rtl; text-align: right; }
@@ -25,15 +24,15 @@ def load_css():
 
 load_css()
 
-# تهيئة مخزن البيانات في الجلسة
+# تهيئة البيانات
 if 'students' not in st.session_state:
     st.session_state.students = dm.load_data()
 
 # ==========================================
-# 2. القائمة الجانبية (Sidebar)
+# 2. القائمة الجانبية
 # ==========================================
 with st.sidebar:
-    st.title("🎓 نظام التقييم المتكامل")
+    st.title("🎓 نظام التقييم")
     st.markdown("---")
     menu = st.radio("القائمة الرئيسية:", [
         "سجل التلاميذ", 
@@ -41,401 +40,242 @@ with st.sidebar:
         "تقييم المهارات السلوكية", 
         "التقرير التشخيصي",
         "لوحة التحكم"
-    ], index=1)
+    ], index=3) # الافتراضي على التقرير للتجربة السريعة
     
     st.markdown("---")
     
-    with st.expander("ℹ️ معلومات النظام"):
-        st.info("""
-        **المميزات الجديدة:**
-        1. تقارير PDF احترافية مع رموز (✔ / ✖).
-        2. تحليل ذكي ومخصص لنقاط القوة والضعف.
-        3. مراعاة الصيغة اللغوية (مذكر/مؤنث).
-        4. إمكانية توقيع الولي والإدارة.
-        """)
-    
-    # إحصائيات سريعة في القائمة
     if st.session_state.students:
-        st.markdown("**📊 حالة القسم:**")
         st.caption(f"عدد التلاميذ: {len(st.session_state.students)}")
-        evaluated_count = sum(1 for s in st.session_state.students.values() if s.get("evaluations"))
-        st.caption(f"تم تقييمهم: {evaluated_count}")
 
 # ==========================================
-# 3. القسم الأول: سجل التلاميذ
+# 3. سجل التلاميذ
 # ==========================================
 if menu == "سجل التلاميذ":
     st.header("📂 إدارة ملفات التلاميذ")
+    c1, c2 = st.columns([2, 1])
     
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
+    with c1:
         with st.form("add_student", clear_on_submit=True):
-            st.subheader("إضافة تلميذ جديد")
-            name = st.text_input("اسم التلميذ بالكامل:")
-            
+            st.subheader("تسجيل تلميذ جديد")
+            name = st.text_input("الاسم الثلاثي:")
             col_a, col_b = st.columns(2)
-            with col_a:
-                birth_date = st.date_input("تاريخ الميلاد:", value=None)
-            with col_b:
-                gender = st.selectbox("الجنس:", ["ذكر", "أنثى"])
+            with col_a: dob = st.date_input("تاريخ الميلاد:", value=None)
+            with col_b: gender = st.selectbox("الجنس:", ["ذكر", "أنثى"])
+            level = st.selectbox("المستوى:", ["تحضيري", "روضة", "سنة أولى"])
             
-            class_level = st.selectbox("المستوى الدراسي:", 
-                                      ["القسم التحضيري", "تمهيدي", "روضة أولى", "روضة ثانية", "صف أول ابتدائي"])
-            
-            notes = st.text_area("ملاحظات أولية (صحيّة/عائلية/أخرى):", height=100)
-            
-            if st.form_submit_button("📥 حفظ بيانات التلميذ", type="primary"):
-                if not name or name.strip() == "":
-                    st.error("الرجاء إدخال اسم التلميذ")
-                elif name in st.session_state.students:
-                    st.warning(f"التلميذ '{name}' مسجل مسبقاً")
+            if st.form_submit_button("حفظ البيانات", type="primary"):
+                if name:
+                    info = {"dob": str(dob), "gender": gender, "class_level": level}
+                    dm.save_student_info(name, info)
+                    st.session_state.students = dm.load_data()
+                    st.success(f"تم حفظ {name}")
                 else:
-                    new_info = {
-                        "dob": str(birth_date),
-                        "gender": gender,
-                        "class_level": class_level,
-                        "notes": notes,
-                        "registration_date": datetime.now().strftime("%Y-%m-%d")
-                    }
-                    dm.save_student_info(name, new_info)
-                    st.session_state.students = dm.load_data() # تحديث البيانات
-                    st.success(f"✅ تم تسجيل التلميذ: {name}")
-    
-    with col2:
-        st.subheader("قائمة التلاميذ")
+                    st.error("الاسم مطلوب")
+
+    with c2:
+        st.subheader("القائمة")
         if st.session_state.students:
-            for student_name in st.session_state.students.keys():
-                with st.expander(f"👤 {student_name}"):
-                    info = st.session_state.students[student_name]["info"]
-                    st.write(f"**المستوى:** {info.get('class_level', '-')}")
-                    st.write(f"**تاريخ الميلاد:** {info.get('dob', '-')}")
-        else:
-            st.info("لا يوجد تلاميذ مسجلين بعد.")
+            for n, d in st.session_state.students.items():
+                with st.expander(n):
+                    st.write(f"المستوى: {d['info'].get('class_level')}")
+                    st.write(f"الجنس: {d['info'].get('gender')}")
 
 # ==========================================
-# 4. القسم الثاني: تقييم المواد الدراسية
+# 4. التقييم الأكاديمي
 # ==========================================
 elif menu == "تقييم المواد الدراسية":
-    st.header("📚 تقييم المواد الدراسية الأساسية")
-    
-    student_names = list(st.session_state.students.keys())
-    if not student_names:
-        st.warning("⚠️ الرجاء تسجيل تلاميذ أولاً من قسم 'سجل التلاميذ'.")
+    st.header("📚 التقييم الأكاديمي")
+    if not st.session_state.students:
+        st.warning("الرجاء إضافة تلاميذ.")
     else:
-        selected_student = st.selectbox("اختر التلميذ:", student_names)
+        student = st.selectbox("اختر التلميذ:", list(st.session_state.students.keys()))
         
-        # عرض معلومات مختصرة
-        if selected_student:
-            student_info = st.session_state.students[selected_student]["info"]
-            c1, c2, c3 = st.columns(3)
-            c1.metric("المستوى", student_info.get("class_level", "-"))
-            c2.metric("الجنس", student_info.get("gender", "-"))
-            c3.metric("تاريخ الميلاد", student_info.get("dob", "-"))
+        # عرض معلومات الطالب للتأكد
+        info = st.session_state.students[student]["info"]
+        st.caption(f"البيانات: {info.get('class_level')} | {info.get('gender')}")
         
-        st.markdown("---")
-        
-        with st.form("academic_evaluation"):
-            st.subheader("📋 تقييم المواد الدراسية")
+        with st.form("academic_form"):
+            current = st.session_state.students[student].get("evaluations", {}).get("academic", {})
+            new_data = {}
             
-            current_evals = st.session_state.students[selected_student].get("evaluations", {})
-            academic_evals = current_evals.get("academic", {})
-            new_academic_data = {}
-            
-            # إنشاء تبويبات للمواد
-            academic_tabs = st.tabs(list(dm.ACADEMIC_SUBJECTS.keys()))
-            
-            for i, (subject, skills) in enumerate(dm.ACADEMIC_SUBJECTS.items()):
-                with academic_tabs[i]:
-                    st.markdown(f"### {subject}")
-                    subject_data = {}
+            tabs = st.tabs(list(dm.ACADEMIC_SUBJECTS.keys()))
+            for i, (subj, skills) in enumerate(dm.ACADEMIC_SUBJECTS.items()):
+                with tabs[i]:
+                    subj_data = {}
                     for skill in skills:
-                        # استرجاع القيمة السابقة أو الافتراضي (1: في طريق الاكتساب)
-                        prev_val_idx = 1
-                        if subject in academic_evals:
-                            prev_val_idx = academic_evals[subject].get(skill, 1)
-                        
-                        col_label, col_radio = st.columns([3, 2])
-                        with col_label: st.markdown(f"**{skill}**")
-                        with col_radio:
-                            choice = st.radio(
-                                f"label_{skill}", dm.RATING_OPTIONS, index=prev_val_idx,
-                                key=f"ac_{selected_student}_{subject}_{skill}",
-                                horizontal=True, label_visibility="collapsed"
-                            )
-                        subject_data[skill] = dm.RATING_MAP[choice]
-                    new_academic_data[subject] = subject_data
-                    st.markdown("---")
+                        # 1=في طريق الاكتساب (الافتراضي)
+                        prev = current.get(subj, {}).get(skill, 1) 
+                        val = st.radio(skill, dm.RATING_OPTIONS, index=prev, key=f"ac_{student}_{skill}", horizontal=True)
+                        subj_data[skill] = dm.RATING_MAP[val]
+                    new_data[subj] = subj_data
             
-            academic_notes = st.text_area("ملاحظات الأستاذ (أكاديمي):", value=current_evals.get("academic_notes", ""))
-            
-            if st.form_submit_button("💾 حفظ تقييم المواد الدراسية", type="primary"):
-                # تحديث الهيكل
+            if st.form_submit_button("حفظ التقييم الأكاديمي"):
+                # الحفظ
                 data = st.session_state.students
-                if "evaluations" not in data[selected_student]:
-                    data[selected_student]["evaluations"] = {}
-                
-                data[selected_student]["evaluations"]["academic"] = new_academic_data
-                data[selected_student]["evaluations"]["academic_notes"] = academic_notes
-                data[selected_student]["evaluations"]["last_update"] = datetime.now().strftime("%Y-%m-%d %H:%M")
-                
+                if "evaluations" not in data[student]: data[student]["evaluations"] = {}
+                data[student]["evaluations"]["academic"] = new_data
+                data[student]["evaluations"]["last_update"] = datetime.now().strftime("%Y-%m-%d")
                 dm.save_data(data)
                 st.session_state.students = dm.load_data()
-                st.toast("تم الحفظ بنجاح!", icon="✅")
+                st.toast("تم الحفظ!", icon="✅")
 
 # ==========================================
-# 5. القسم الثالث: تقييم المهارات السلوكية
+# 5. التقييم السلوكي
 # ==========================================
 elif menu == "تقييم المهارات السلوكية":
-    st.header("🧠 تقييم المهارات السلوكية والتنموية")
-    
-    student_names = list(st.session_state.students.keys())
-    if not student_names:
-        st.warning("⚠️ الرجاء تسجيل تلاميذ أولاً.")
-    else:
-        selected_student = st.selectbox("اختر التلميذ:", student_names)
-        st.markdown("---")
+    st.header("🧠 التقييم السلوكي")
+    if st.session_state.students:
+        student = st.selectbox("اختر التلميذ:", list(st.session_state.students.keys()))
         
-        with st.form("behavioral_evaluation"):
-            st.subheader("📊 تقييم المهارات السلوكية")
+        with st.form("behavioral_form"):
+            current = st.session_state.students[student].get("evaluations", {}).get("behavioral", {})
+            new_data = {}
             
-            current_evals = st.session_state.students[selected_student].get("evaluations", {})
-            behavioral_evals = current_evals.get("behavioral", {})
-            new_behavioral_data = {}
-            
-            behavioral_tabs = st.tabs(list(dm.BEHAVIORAL_SKILLS.keys()))
-            
-            for i, (main_cat, sub_cats) in enumerate(dm.BEHAVIORAL_SKILLS.items()):
-                with behavioral_tabs[i]:
-                    st.markdown(f"### {main_cat}")
-                    cat_data = {}
-                    for sub_cat, skills in sub_cats.items():
-                        st.markdown(f"#### {sub_cat}")
+            tabs = st.tabs(list(dm.BEHAVIORAL_SKILLS.keys()))
+            for i, (main, subs) in enumerate(dm.BEHAVIORAL_SKILLS.items()):
+                with tabs[i]:
+                    main_data = {}
+                    for sub, skills in subs.items():
+                        st.markdown(f"**{sub}**")
                         sub_data = {}
                         for skill in skills:
-                            prev_val_idx = 1
-                            if main_cat in behavioral_evals and sub_cat in behavioral_evals[main_cat]:
-                                prev_val_idx = behavioral_evals[main_cat][sub_cat].get(skill, 1)
-                            
-                            col_l, col_r = st.columns([3, 2])
-                            with col_l: st.markdown(f"**{skill}**")
-                            with col_r:
-                                choice = st.radio(
-                                    f"label_{skill}", dm.RATING_OPTIONS, index=prev_val_idx,
-                                    key=f"beh_{selected_student}_{main_cat}_{sub_cat}_{skill}",
-                                    horizontal=True, label_visibility="collapsed"
-                                )
-                            sub_data[skill] = dm.RATING_MAP[choice]
-                        cat_data[sub_cat] = sub_data
+                            prev = current.get(main, {}).get(sub, {}).get(skill, 1)
+                            val = st.radio(skill, dm.RATING_OPTIONS, index=prev, key=f"beh_{student}_{skill}", horizontal=True)
+                            sub_data[skill] = dm.RATING_MAP[val]
+                        main_data[sub] = sub_data
                         st.markdown("---")
-                    new_behavioral_data[main_cat] = cat_data
+                    new_data[main] = main_data
             
-            behav_notes = st.text_area("ملاحظات السلوك:", value=current_evals.get("behavioral_notes", ""))
-            
-            if st.form_submit_button("💾 حفظ تقييم المهارات السلوكية", type="primary"):
+            if st.form_submit_button("حفظ التقييم السلوكي"):
                 data = st.session_state.students
-                if "evaluations" not in data[selected_student]:
-                    data[selected_student]["evaluations"] = {}
-                    
-                data[selected_student]["evaluations"]["behavioral"] = new_behavioral_data
-                data[selected_student]["evaluations"]["behavioral_notes"] = behav_notes
-                data[selected_student]["evaluations"]["last_update"] = datetime.now().strftime("%Y-%m-%d %H:%M")
-                
+                if "evaluations" not in data[student]: data[student]["evaluations"] = {}
+                data[student]["evaluations"]["behavioral"] = new_data
+                data[student]["evaluations"]["last_update"] = datetime.now().strftime("%Y-%m-%d")
                 dm.save_data(data)
                 st.session_state.students = dm.load_data()
-                st.toast("تم الحفظ بنجاح!", icon="✅")
+                st.toast("تم الحفظ!", icon="✅")
 
 # ==========================================
-# 6. القسم الرابع: التقرير التشخيصي (Logic Updated)
+# 6. التقرير التشخيصي (تم التحديث هنا) 🌟
 # ==========================================
 elif menu == "التقرير التشخيصي":
     st.header("📈 التقرير التشخيصي الشامل")
     
-    student_names = list(st.session_state.students.keys())
-    if not student_names:
-        st.warning("لا يوجد بيانات لعرض التقارير.")
+    if not st.session_state.students:
+        st.warning("لا توجد بيانات.")
     else:
-        selected_student = st.selectbox("اختر التلميذ:", student_names)
+        student = st.selectbox("اختر التلميذ:", list(st.session_state.students.keys()))
         
-        # جلب البيانات
-        data = st.session_state.students[selected_student].get("evaluations", {})
-        student_info = st.session_state.students[selected_student]["info"]
+        # 1. جلب البيانات
+        student_data = st.session_state.students[student]
+        info = student_data["info"]
+        evals = student_data.get("evaluations", {})
         
-        # حساب الدرجات
-        scores = dm.calculate_scores(data)
+        # 2. استخراج الجنس (مهم جداً للغة)
+        gender = info.get("gender", "ذكر")
         
-        # 1. بطاقة النتائج المرئية
-        st.subheader("🎯 مؤشرات الأداء")
+        # 3. استدعاء التحليل الذكي (نمرر الجنس)
+        # سيقوم data_manager بصياغة الجمل بناءً على المذكر/المؤنث
+        narrative, action_plan = dm.analyze_student_performance(student, evals, gender)
+        
+        # 4. عرض النتائج
+        scores = dm.calculate_scores(evals)
+        
+        # البطاقات العلوية
         c1, c2, c3 = st.columns(3)
-        with c1: 
-            st.metric("المواد الدراسية", f"{scores['academic_percentage']:.1f}%")
-            st.progress(scores['academic_percentage'] / 100)
-        with c2: 
-            st.metric("المهارات السلوكية", f"{scores['behavioral_percentage']:.1f}%")
-            st.progress(scores['behavioral_percentage'] / 100)
-        with c3: 
-            st.metric("المجموع الكلي", f"{scores['overall_percentage']:.1f}%")
-            st.progress(scores['overall_percentage'] / 100)
-
+        c1.metric("التحصيل الدراسي", f"{scores['academic_percentage']:.0f}%")
+        c2.metric("السلوك والمواظبة", f"{scores['behavioral_percentage']:.0f}%")
+        c3.metric("النسبة العامة", f"{scores['overall_percentage']:.0f}%")
+        st.progress(scores['overall_percentage'] / 100)
+        
         st.divider()
-
-        # ---------------------------------------------------------
-        # عرض التحليل والحلول على الشاشة (مع التعديلات الجديدة)
-        # ---------------------------------------------------------
         
-        # 1. تحليل الأداء (الحصول على النص الخام + الخطة)
-        raw_narrative, action_plan = dm.analyze_student_performance(selected_student, data)
+        # عرض التحليل اللغوي
+        col_text, col_plan = st.columns([2, 1])
         
-        # 2. معالجة الجنس (Gender Processing) لتصحيح اللغة العربية
-        gender = student_info.get("gender", "ذكر")
-        
-        if gender == "أنثى":
-            final_narrative = raw_narrative.replace("المتعلم", "المتعلمة")
-            final_narrative = final_narrative.replace("أبان", "أبانت")
-            final_narrative = final_narrative.replace("أظهر", "أظهرت")
-            final_narrative = final_narrative.replace("يتميز", "تتميز")
-            final_narrative = final_narrative.replace("يتمتع", "تتمتع")
-            final_narrative = final_narrative.replace("يميل", "تميل")
-            final_narrative = final_narrative.replace("يبدي", "تبدي")
-            final_narrative = final_narrative.replace("هو", "هي")
-            final_narrative = final_narrative.replace("عنه", "عنها")
-            final_narrative = final_narrative.replace("أداءه", "أداؤها")
-            final_narrative = final_narrative.replace("بنفسه", "بنفسها")
-            final_narrative = final_narrative.replace("إنجازه", "إنجازها")
-        else:
-            final_narrative = raw_narrative # كما هي (صيغة المذكر)
-
-        col_analysis, col_solutions = st.columns(2)
-        
-        # عرض التحليل (أسباب الصعوبات ونقاط القوة)
-        with col_analysis:
-            st.subheader("📝 التحليل النفسي والتربوي")
-            # عرض النص الجميل في صندوق HTML منسق
+        with col_text:
+            st.subheader("📝 التحليل التربوي")
+            # صندوق منسق للنص
             st.markdown(
                 f"""
-                <div style="background-color:#f9f9f9; padding:15px; border-radius:10px; border-right: 5px solid #4CAF50; direction: rtl; text-align: right; line-height: 1.8;">
-                {final_narrative.replace(chr(10), '<br>')}
+                <div style="background-color:#f8f9fa; padding:20px; border-radius:10px; border-right: 5px solid #2e86de; font-size:16px; line-height:1.8; color:#2c3e50;">
+                {narrative.replace(chr(10), '<br>')}
                 </div>
-                """, 
-                unsafe_allow_html=True
+                """, unsafe_allow_html=True
             )
-            
-            # عرض نقاط الضعف المحددة أسفل التحليل إذا وجدت
-            if scores['weaknesses']:
-                st.markdown("---")
-                st.markdown("##### ⚠️ صعوبات تتطلب متابعة:")
-                for w in scores['weaknesses'][:5]: # عرض أهم 5 فقط
-                    st.error(w)
 
-        # عرض الحلول المقترحة (الخطة العلاجية)
-        with col_solutions:
-            st.subheader("💡 الحلول المقترحة (الخطة العلاجية)")
+        with col_plan:
+            st.subheader("💡 الخطة المقترحة")
             if action_plan:
-                for skill, recommendation in action_plan:
-                    with st.expander(f"لتحسين: {skill}", expanded=True):
-                        st.markdown(f"**✅ الإجراء المقترح:**")
-                        st.write(recommendation)
+                for item, rec in action_plan:
+                    with st.expander(f"📌 {item}"):
+                        st.info(rec)
             else:
-                st.success("🎉 مستوى التلميذ ممتاز، يوصى بالاستمرار في التعزيز الإيجابي.", icon="🌟")
+                st.success("الأداء ممتاز، استمر في التشجيع!")
 
         st.divider()
-        # ---------------------------------------------------------
-
-        # 3. أزرار التحميل (Text & PDF)
         
-        # --- تحميل التقرير النصي ---
-        # نمرر final_narrative المصحح لغوياً
-        report_text = dm.generate_text_report(
-            selected_student, student_info, data, scores, final_narrative, action_plan
-        )
-        st.download_button("📄 تحميل مسودة نصية (TXT)", report_text, f"report_{selected_student}.txt")
-
-        # --- قسم تحميل PDF ---
-        st.write("")
-        st.markdown("### 📄 التقرير الرسمي (PDF)")
-        st.caption("يتضمن التقرير الرموز (✔/✖)، النسب المئوية، وخانات التوقيع.")
+        # 5. زر توليد PDF (التحديث الأخير)
+        st.subheader("📄 إصدار التقرير الرسمي")
         
-        last_update = data.get("last_update", datetime.now().strftime("%Y%m%d%H%M"))
-        pdf_key = f"pdf_cache_{selected_student}_{last_update}"
+        # مفتاح فريد لتخزين الـ PDF في الذاكرة (لتجنب إعادة التوليد)
+        pdf_key = f"pdf_{student}_{evals.get('last_update', 'new')}"
         
         if pdf_key not in st.session_state:
-            if st.button("🔄 إنشاء وتجهيز ملف PDF", type="secondary"):
+            if st.button("🔄 إنشاء ملف PDF (جاهز للطباعة)", type="primary"):
                 try:
                     import pdf_generator
-                    with st.spinner("جاري الرسم ومعالجة الخطوط العربية..."):
-                        # نستدعي الدالة ونمرر final_narrative بدلاً من narrative
-                        pdf_bytes, error_msg = pdf_generator.create_pdf(
-                            selected_student, 
-                            student_info, 
-                            data, 
-                            final_narrative, # <-- النص المصحح لغوياً
-                            action_plan
+                    with st.spinner("جاري صياغة التقرير، رسم الجداول، وضبط التنسيق..."):
+                        # نمرر النص المصحح (narrative) والبيانات الكاملة
+                        pdf_bytes, error = pdf_generator.create_pdf(
+                            student, info, evals, narrative, action_plan
                         )
                         
                         if pdf_bytes:
                             st.session_state[pdf_key] = pdf_bytes
                             st.rerun()
                         else:
-                            st.error(f"حدث خطأ أثناء الإنشاء: {error_msg}")
+                            st.error(f"خطأ: {error}")
                 except ImportError:
-                    st.error("مكتبات PDF مفقودة (fpdf2, arabic-reshaper, python-bidi).")
+                    st.error("المكتبات مفقودة (fpdf2, arabic-reshaper, python-bidi)")
         
+        # إذا كان الملف جاهزاً
         if pdf_key in st.session_state:
-            st.success("التقرير جاهز للطباعة!")
-            col_d1, col_d2 = st.columns([1, 2])
-            with col_d1:
+            c_d1, c_d2 = st.columns([1, 4])
+            with c_d1:
                 st.download_button(
-                    label="📥 تحميل التقرير (PDF)",
+                    label="📥 تحميل PDF",
                     data=st.session_state[pdf_key],
-                    file_name=f"Report_{selected_student}.pdf",
+                    file_name=f"Report_{student}.pdf",
                     mime="application/pdf",
                     type="primary"
                 )
-            with col_d2:
-                if st.button("إعادة الإنشاء"):
+            with c_d2:
+                if st.button("إعادة إنشاء"):
                     del st.session_state[pdf_key]
                     st.rerun()
 
 # ==========================================
-# 7. القسم الخامس: لوحة التحكم
+# 7. لوحة التحكم
 # ==========================================
 elif menu == "لوحة التحكم":
-    st.header("📊 لوحة التحكم والإحصاءات")
-    
+    st.header("📊 إحصائيات عامة")
     if st.session_state.students:
-        total = len(st.session_state.students)
-        evaluated = sum(1 for s in st.session_state.students.values() if s.get("evaluations"))
-        
-        c1, c2, c3 = st.columns(3)
-        c1.metric("إجمالي التلاميذ", total)
-        c2.metric("تم تقييمهم", evaluated)
-        c3.metric("نسبة الإنجاز", f"{(evaluated/total*100):.1f}%" if total else "0%")
-        
-        st.divider()
-        
-        # جدول البيانات
-        st.subheader("سجل المتابعة")
-        data_list = []
-        for name, info in st.session_state.students.items():
-            last_up = info.get("evaluations", {}).get("last_update", "غير مقيم")
-            data_list.append({
+        df = []
+        for name, data in st.session_state.students.items():
+            scores = dm.calculate_scores(data.get("evaluations", {}))
+            df.append({
                 "الاسم": name,
-                "المستوى": info["info"].get("class_level", ""),
-                "آخر تحديث": last_up
+                "المستوى": data["info"].get("class_level"),
+                "الأداء العام": f"{scores['overall_percentage']:.1f}%"
             })
-        st.dataframe(pd.DataFrame(data_list), use_container_width=True)
+        st.dataframe(pd.DataFrame(df), use_container_width=True)
         
-        st.divider()
-        st.subheader("⚙️ النسخ الاحتياطي")
-        
-        json_data = json.dumps(st.session_state.students, ensure_ascii=False, indent=2)
-        st.download_button("💾 تحميل قاعدة البيانات (JSON)", json_data, "students_backup.json", "application/json")
-        
-        with st.expander("منطقة الخطر"):
-            if st.button("🗑️ حذف جميع البيانات (لا يمكن التراجع)", type="primary"):
-                st.session_state.students = {}
-                dm.save_data({})
-                st.rerun()
+        # زر حذف البيانات (للتنظيف)
+        if st.button("🗑️ حذف جميع البيانات"):
+            st.session_state.students = {}
+            dm.save_data({})
+            st.rerun()
     else:
-        st.info("لا توجد بيانات حالياً.")
+        st.info("لا توجد بيانات.")
 

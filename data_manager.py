@@ -1,141 +1,82 @@
 import json
 import os
-import streamlit as st
+import random
 from datetime import datetime
 
 DATA_FILE = "students_data.json"
 
-# --- Constants ---
+# --- ثوابت التقييم ---
 RATING_OPTIONS = ["غير مكتسب", "في طريق الاكتساب", "مكتسب"]
 RATING_MAP = {"غير مكتسب": 0, "في طريق الاكتساب": 1, "مكتسب": 2}
-RATING_COLORS = {"غير مكتسب": "#FF4B4B", "في طريق الاكتساب": "#FFA500", "مكتسب": "#4CAF50"}
 
-# --- Assessment Criteria ---
-# 1. Academic Subjects
-ACADEMIC_SUBJECTS = {
-    "اللغة العربية": [
-        "يسمي الحروف الهجائية المدروسة",
-        "يميز صواتياً بين الحروف",
-        "يمسك القلم بطريقة صحيحة",
-    ],
-    "الرياضيات": [
-        "يعد شفوياً إلى 20",
-        "يربط العدد بالمعدود",
-        "يميز الأشكال الهندسية",
-        "يصنف الأشياء حسب خاصية معينة",
-        "يتعرف على الأعداد حتى 10"
-    ],
-    "التربية الإسلامية والمدنية": [
-        "يحفظ قصار السور المقررة",
-        "يلقي التحية ويردها",
-        "يحافظ على نظافة مكانه",
-        "يتعاون مع زملائه",
-        "يحترم المعلم والزملاء"
-    ],
-    "التربية العلمية": [
-        "يسمي أعضاء جسم الإنسان",
-        "يميز بين الحواس الخمس",
-        "يعرف الحيوانات الأليفة والمتوحشة",
-    ],
-
-}
-
-# 2. Behavioral Skills
-BEHAVIORAL_SKILLS = {
-    "الوظائف التنفيذية (الذهنية)": {
-        "الانتباه والذاكرة": [
-            "التركيز على نشاط لمدة 15 دقيقة",
-            "إكمال المهمة للنهاية دون تشتت",
-            "تذكر تعليمات من 3 خطوات",
-            "تذكر أحداث قصة قصيرة",
-            "ينتبه للتفاصيل المهمة"
+# --- بنك العبارات التربوية (The Enrichment Bank) ---
+# يحتوي على جمل متنوعة لتجنب التكرار ولإعطاء صبغة إنسانية
+ANALYSIS_TEMPLATES = {
+    "opening": {
+        "excellent": [
+            "أبان {student_type} {name} عن قدرات استثنائية وجاهزية عالية للتعلم، مما يعكس نضجاً مبكراً في مهارات التفكير والتحليل.",
+            "يتميز {student_type} {name} بحضور ذهني متوقد وشغف واضح للاكتشاف، وهو ما ظهر جلياً في سرعة استيعابه للمفاهيم المقدمة.",
+            "أظهر {student_type} {name} مستوى متميزاً من الكفاءة، حيث يجمع بين الذكاء المعرفي والانضباط السلوكي بشكل مثير للإعجاب."
         ],
-        "المرونة والتفكير": [
-            "الانتقال بين الأنشطة بسلاسة",
-            "تقبل التغيير في الروتين",
-            "إدراك التسلسل المنطقي للأحداث",
-            "حل المشكلات البسيطة",
-            "يطرح أسئلة ذكية"
+        "good": [
+            "يسير {student_type} {name} بخطى ثابتة ومطمئنة في رحلته التعليمية، مبدياً تجاوباً إيجابياً مع معظم الأنشطة المقترحة.",
+            "أظهر {student_type} {name} تطوراً ملحوظاً في اكتساب المهارات الأساسية، مع وجود بعض التفاوت الطبيعي بين الجوانب الأكاديمية والسلوكية.",
+            "يتمتع {student_type} {name} بإمكانيات طيبة وقابلية عالية للتعلم، وهو يبذل جهداً مشكوراً لمواكبة متطلبات القسم."
+        ],
+        "needs_support": [
+            "يواجه {student_type} {name} بعض التحديات في التكيف مع البيئة المدرسية، وهو ما يتطلب منا تفهماً وصبراً لاحتواء احتياجاته الخاصة.",
+            "يمر {student_type} {name} بمرحلة انتقالية دقيقة، حيث تظهر النتائج حاجته الماسة لدعم فردي مكثف لتعزيز ثقته بنفسه.",
+            "تشير الملاحظات إلى أن {student_type} {name} يمتلك طاقة كامنة لم يتم توظيفها بعد بالشكل الصحيح، مما يستدعي تدخلاً تربويًا موجهاً."
         ]
     },
-    "الكفاءة الاجتماعية والعاطفية": {
-        "التطور الشخصي والاجتماعي": [
-            "التعبير عن المشاعر بدقة",
-            "الثقة بالنفس والمبادرة",
-            "المشاركة في اللعب الجماعي",
-            "احترام الدور والقوانين",
-            "التحكم في الانفعالات",
-            "تقدير الذات والإيجابية"
-        ],
-        "المهارات العاطفية": [
-            "التعاطف مع الآخرين",
-            "التعبير عن الحاجة للمساعدة",
-            "تحمل المسؤولية",
-            "التكيف مع المواقف الجديدة"
-        ]
+    "cognitive_style": { # تحليل نمط التفكير
+        "analytical": "من الناحية المعرفية، يميل {pronoun} إلى التفكير المنطقي والمنظم، ويظهر شغفاً بالأنشطة التي تتطلب دقة وتركيزاً، مثل التعامل مع الأرقام والأشكال.",
+        "verbal": "يتميز {pronoun} بطلاقة لغوية وقدرة تعبيرية لافتة، حيث يعتمد في تعلمه بشكل كبير على التواصل اللفظي وسرد القصص والتفاعل الحي.",
+        "balanced": "يظهر {pronoun} مرونة ذهنية رائعة، حيث يتنقل بسلاسة بين المهام اللغوية والمنطقية، مما يعكس توازناً في نمو نصفي الدماغ.",
+        "struggling": "يجد {pronoun} بعض الصعوبة في معالجة المعلومات المجردة والمتسلسلة، ويفضل الاعتماد على الوسائل الحسية والملموسة لفهم المطلوب."
     },
-    "المهارات الحركية والاستقلالية": {
-        "النمو الحركي": [
-            "استخدام المقص بدقة",
-            "تلوين داخل الحدود",
-            "التوازن (الوقوف على قدم واحدة)",
-            "التقاط الكرة ورميها",
-            "القفز على قدمين معاً"
-        ],
-        "الاستقلالية": [
-            "الاعتماد على النفس (لبس، حمام، ترتيب)",
-            "تناول الطعام بنفسه",
-            "ترتيب الأدوات المدرسية",
-            "العناية بالنظافة الشخصية"
-        ]
-    }
+    "social_emotional": { # التحليل النفسي والاجتماعي
+        "leader": "اجتماعياً، يتمتع بشخصية قيادية محبوبة، ويجيد إدارة المواقف مع أقرانه بذكاء عاطفي، مما يجعله عنصراً فعالاً في العمل الجماعي.",
+        "introvert": "يميل {pronoun} إلى الهدوء والتأمل، ويفضل العمل الفردي أو ضمن مجموعات صغيرة، وهو ما يعكس شخصية حساسة ودقيقة الملاحظة.",
+        "impulsive": "يتسم سلوكه ببعض الاندفاع والحماس الزائد، مما يتطلب توجيه هذه الطاقة الحركية نحو أنشطة بناءة لتعزيز التركيز.",
+        "dependent": "يحتاج {pronoun} إلى تشجيع مستمر ودعم عاطفي للشعور بالأمان، حيث يتردد أحياناً في المبادرة خوفاً من الخطأ."
+    },
+    "work_habits": { # عادات العمل
+        "focused": "يتميز بجلد وصبر في إنجاز المهام، ولديه قدرة عالية على التركيز لفترات طويلة دون تشتت.",
+        "distracted": "يتأثر انتباهه بسهولة بالمشوشات الخارجية، مما يستدعي تقسيم المهام الطويلة إلى مراحل قصيرة للحفاظ على تفاعله.",
+        "creative": "يظهر لمسات إبداعية في إنجاز أعماله، وغالباً ما يبحث عن حلول غير تقليدية للمشكلات التي تواجهه."
+    },
+    "closing": [
+        "ختاماً، نحن متفائلون جداً بمستقبل {student_type}، ونؤكد أن التعاون المثمر بين البيت والمدرسة هو المفتاح لصقل هذه الجوهرة.",
+        "إن المسار التعليمي لـ{student_type} يبشر بالخير، ومع استمرار الدعم والتحفيز، نتوقع أن يحقق قفزات نوعية في الفصل القادم.",
+        "نوصي بالتركيز على الجانب النفسي وتعزيز الشعور بالإنجاز، فالراحة النفسية هي البوابة الأولى للتعلم."
+    ]
 }
 
-# --- Helper Functions ---
+# --- الدوال المساعدة ---
 
 def load_data():
-    """Load student data from the JSON file."""
     if os.path.exists(DATA_FILE):
         try:
             with open(DATA_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                return data
-        except Exception as e:
-            st.error(f"Error loading data: {e}")
-            return {}
+                return json.load(f)
+        except: return {}
     return {}
 
 def save_data(data):
-    """Save the entire data dictionary to file."""
-    try:
-        with open(DATA_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=4)
-    except Exception as e:
-        st.error(f"Error saving data: {e}")
+    with open(DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)
 
 def save_student_info(name, info):
-    """Save or update basic student info."""
     data = load_data()
     if name not in data:
         data[name] = {"info": info, "evaluations": {}, "history": []}
     else:
-        # Update info but keep existing structure
-        if "info" not in data[name]:
-            data[name]["info"] = {}
+        if "info" not in data[name]: data[name]["info"] = {}
         data[name]["info"].update(info)
-        
     save_data(data)
 
 def calculate_scores(evaluations):
-    """Calculate scores and percentages for assessments."""
-    if not evaluations:
-        return {
-            "academic_total": 0, "academic_max": 0, "academic_percentage": 0,
-            "behavioral_total": 0, "behavioral_max": 0, "behavioral_percentage": 0,
-            "overall_total": 0, "overall_max": 0, "overall_percentage": 0,
-            "weaknesses": [], "strengths": []
-        }
-    
     academic_total = 0
     academic_max = 0
     behavioral_total = 0
@@ -143,263 +84,177 @@ def calculate_scores(evaluations):
     weaknesses = []
     strengths = []
     
-    # Calculate Academic
-    # Careful iteration to avoid AttributeError if data is malformed or contains non-dict items
-    if "academic" in evaluations and isinstance(evaluations["academic"], dict):
-        for subject, skills in evaluations["academic"].items():
-            if isinstance(skills, dict):
+    # حساب الأكاديمي
+    if "academic" in evaluations:
+        for subj, skills in evaluations["academic"].items():
+            for skill, score in skills.items():
+                academic_total += score
+                academic_max += 2
+                if score == 0: weaknesses.append(f"{subj}: {skill}")
+                elif score == 2: strengths.append(skill)
+    
+    # حساب السلوكي
+    if "behavioral" in evaluations:
+        for main, subs in evaluations["behavioral"].items():
+            for sub, skills in subs.items():
                 for skill, score in skills.items():
-                    academic_total += score
-                    academic_max += 2
-                    if score == 0:
-                        weaknesses.append(f"[المواد الدراسية - {subject}] {skill}")
-                    elif score == 2:
-                        strengths.append(f"[المواد الدراسية - {subject}] {skill}")
-    
-    # Calculate Behavioral
-    if "behavioral" in evaluations and isinstance(evaluations["behavioral"], dict):
-        for category, domains in evaluations["behavioral"].items():
-            if isinstance(domains, dict):
-                for domain, skills in domains.items():
-                    if isinstance(skills, dict):
-                        for skill, score in skills.items():
-                            behavioral_total += score
-                            behavioral_max += 2
-                            if score == 0:
-                                weaknesses.append(f"[المهارات - {category}/{domain}] {skill}")
-                            elif score == 2:
-                                strengths.append(f"[المهارات - {category}/{domain}] {skill}")
-    
-    overall_total = academic_total + behavioral_total
-    overall_max = academic_max + behavioral_max
-    
-    academic_percentage = (academic_total / academic_max * 100) if academic_max > 0 else 0
-    behavioral_percentage = (behavioral_total / behavioral_max * 100) if behavioral_max > 0 else 0
-    overall_percentage = (overall_total / overall_max * 100) if overall_max > 0 else 0
+                    behavioral_total += score
+                    behavioral_max += 2
+                    if score == 0: weaknesses.append(f"{main}: {skill}")
+                    elif score == 2: strengths.append(skill)
+
+    ac_pct = (academic_total / academic_max * 100) if academic_max > 0 else 0
+    beh_pct = (behavioral_total / behavioral_max * 100) if behavioral_max > 0 else 0
+    ov_pct = ((academic_total+behavioral_total)/(academic_max+behavioral_max)*100) if (academic_max+behavioral_max) > 0 else 0
     
     return {
-        "academic_total": academic_total,
-        "academic_max": academic_max,
-        "academic_percentage": academic_percentage,
-        "behavioral_total": behavioral_total,
-        "behavioral_max": behavioral_max,
-        "behavioral_percentage": behavioral_percentage,
-        "overall_total": overall_total,
-        "overall_max": overall_max,
-        "overall_percentage": overall_percentage,
+        "academic_percentage": ac_pct,
+        "behavioral_percentage": beh_pct,
+        "overall_percentage": ov_pct,
         "weaknesses": weaknesses,
-        "strengths": strengths
+        "strengths": strengths,
+        "academic_raw": (academic_total, academic_max), # نحتاجها للتحليل التفصيلي
+        "behavioral_raw": (behavioral_total, behavioral_max)
     }
 
+# ==============================================================================
+# المحرك الذكي للتحليل (The Smart Analysis Engine)
+# ==============================================================================
+def analyze_student_performance(name, data):
+    # 1. استخراج المعلومات الأساسية
+    stats = calculate_scores(data)
+    ac_score = stats['academic_percentage']
+    beh_score = stats['behavioral_percentage']
+    
+    # تحديد الجنس (يفترض أن يكون مخزناً، وإلا نفترض ذكر افتراضياً)
+    # ملاحظة: data هنا هي evaluations، نحتاج info من الجلسة في app.py
+    # للتبسيط، سنعتمد على دالة مساعدة تمرر الجنس أو نكشفه من الاسم (غير دقيق)
+    # سنقوم بصياغة جمل محايدة أو استخدام متغيرات استبدال في app.py
+    # الحل الأفضل: افترض أنك ستمرر info للدالة مستقبلاً، هنا سنستخدم placeholder
+    
+    # سنستخدم متغيرات للاستبدال لاحقاً
+    tags = {
+        "{name}": name,
+        "{student_type}": "المتعلم", # يمكن تغييرها لـ المتعلمة في app.py
+        "{pronoun}": "هو" # أو هي
+    }
 
-# --- Smart Analysis & Recommendations (v4.1) ---
-RECOMMENDATIONS_MAP = {
-    "تمييز الأحرف الأبجدية": "استخدام بطاقات الصنفرة (Sandpaper Letters) لتعزيز الذاكرة الحسية.",
-    "مطابقة الصورة بالكلمة": "ألعاب الذاكرة البصرية (Memory Match) مع صور وكلمات.",
-    "تتبع النص من اليمين لليسار": "أنشطة القراءة المشتركة مع الإشارة بالإصبع أثناء القراءة.",
-    "مسك القلم بالطريقة الصحيحة": "استخدام مقابض الأقلام (Pencil Grips) والتدريب على التقاط الأشياء الصغيرة.",
-    "نسخ أشكال وأحرف بسيطة": "التدرب على الرسم في الرمل أو المعجون قبل الورق.",
-    "كتابة الاسم الأول": "كتابة الاسم بخط منقط ليقوم التلميذ بتتبعه.",
-    "العد حتى 20": "استخدام المحسوسات (الخرز، المكعبات) للعد الملموس.",
-    "المقارنة الكمية (أكثر/أقل)": "توزيع الحلوى أو الألعاب على مجموعتين والمقارنة بينهما.",
-    "تصنيف الأشياء حسب اللون/الشكل": "لعبة 'فرز الأزرار' أو المكعبات في أوعية ملونة.",
-    "سرد قصة متسلسلة": "استخدام بطاقات القصة المصورة لترتيب الأحداث.",
-    "استخدام جمل كاملة": "تشجيع التلميذ على وصف ما يراه في الصور بجمل تامة.",
-    "فهم التعليمات المركبة": "لعبة 'قال القائد' بتعليمات مزدوجة (صفق ثم قف).",
-    "التركيز على نشاط لمدة 15 دقيقة": "استخدام المؤقت الرملي لزيادة وقت التركيز تدريجياً.",
-    "إكمال المهمة للنهاية": "تقسيم المهام الكبيرة إلى خطوات صغيرة ومكافأة كل خطوة.",
-    "تذكر تعليمات من 3 خطوات": "لعبة 'أحضر لي' بطلبات متزايدة الصعوبة.",
-    "تذكر أحداث قصة قصيرة": "طرح أسئلة (ماذا، أين، من) بعد قراءة القصة مباشرة.",
-    "الانتقال بين الأنشطة بسلاسة": "استخدام جدول بصري (Visual Schedule) وتنبيه قبل الانتقال.",
-    "تقبل التغيير في الروتين": "إدخال تغييرات بسيطة ومفاجئة في اللعب كتدريب.",
-    "التعبير عن المشاعر بدقة": "استخدام 'عجلة المشاعر' للمساعدة في تسمية الشعور.",
-    "الثقة بالنفس": "تكليف التلميذ بمهام قيادية بسيطة (موزع الأوراق).",
-    "المشاركة في اللعب الجماعي": "تنظيم ألعاب تعاونية تتطلب عمل الفريق.",
-    "احترام الدور": "استخدام 'عصا التحدث' أو الكرة لتنظيم الأدوار.",
-    "حل النزاعات ودياً": "تمثيل الأدوار (Role-playing) لحل المشكلات.",
-    "اتباع قواعد القسم": "لوحة التعزيز الإيجابي للنجمات.",
-    "التحكم في الانفعالات": "ركن الهدوء (Calm Down Corner) وتمارين التنفس.",
-    "استخدام المقص": "قص العجين أو خطوط عريضة ومستقيمة أولاً.",
-    "تلوين داخل الحدود": "استخدام حدود بارزة (الغراء الجاف) للمساعدة.",
-    "تركيب المكعبات": "تقليد نماذج بسيطة ثلاثية الأبعاد.",
-    "التوازن (الوقوف على قدم واحدة)": "لعبة 'الثبات كالصنم' أو المشي على خط مرسوم.",
-    "التقاط الكرة ورميها": "استخدام كرة كبيرة وخفيفة وتقليل المسافة.",
-    "ارتداء الملابس/الحذاء": "التدريب على ملابس العرايس أو سترة بأزرار كبيرة.",
-    "استخدام الحمام بمفرده": "جدول روتيني مصور داخل الحمام.",
-    "ترتيب الأغراض الشخصية": "تخصيص علامات صورية لمكان كل غرض."
-}
+    narrative_parts = []
 
-import random
-
-def analyze_student_performance(name, evaluation_data):
-    """
-    Generates a creative narrative analysis and actionable recommendations.
-    Uses randomized templates to avoid robotic repetition.
-    """
-    narrative = []
-    strengths = []
-    weaknesses_list = []
-    
-    # Analyze Scores
-    total_score = 0
-    max_score = 0
-    
-    # Calculate Academic (Safe iteration)
-    if "academic" in evaluation_data and isinstance(evaluation_data["academic"], dict):
-        for subject, skills in evaluation_data["academic"].items():
-            if isinstance(skills, dict):
-                for skill, score in skills.items():
-                    total_score += score
-                    max_score += 2
-                    if score == 2:
-                        strengths.append(skill)
-                    elif score == 0:
-                        weaknesses_list.append(skill)
-    
-    # Calculate Behavioral (Safe iteration)
-    if "behavioral" in evaluation_data and isinstance(evaluation_data["behavioral"], dict):
-        for category, domains in evaluation_data["behavioral"].items():
-            if isinstance(domains, dict):
-                for domain, skills in domains.items():
-                    if isinstance(skills, dict):
-                        for skill, score in skills.items():
-                            total_score += score
-                            max_score += 2
-                            if score == 2:
-                                strengths.append(skill)
-                            elif score == 0:
-                                weaknesses_list.append(skill)
-    
-    percentage = (total_score / max_score * 100) if max_score > 0 else 0
-    
-    # 1. Creative Opening (Randomized)
-    # Using 'المتعلم' (The Learner) is often more neutral/professional in reports than 'التلميذ'
-    openings_excellent = [
-        f"أظهر المتعلم **{name}** مستوى متميزاً من الاستعداد المدرسي بنسبة **{percentage:.1f}%**، مما يعكس امتلاكه لمهارات تأسيسية متينة.",
-        f"يسرنا تسجيل تقدم ملحوظ للمتعلم **{name}**، حيث حقق نسبة جاهزية بلغت **{percentage:.1f}%**، وهو مؤشر إيجابي جداً.",
-    ]
-    openings_good = [
-        f"يحرز المتعلم **{name}** تقدماً طيباً في اكتساب المهارات الأساسية بنسبة **{percentage:.1f}%**، مع وجود هامش جيد للتطوير.",
-        f"أظهر التقييم مستوى جيداً للمتعلم **{name}** بنسبة **{percentage:.1f}%**، مما يعني أنه يسير في الطريق الصحيح مع الحاجة لبعض التدعيم.",
-    ]
-    openings_needs_support = [
-        f"تشير النتائج إلى حاجة المتعلم **{name}** لدعم مكثف في بعض الجوانب، حيث بلغت نسبة الاستعداد **{percentage:.1f}%**.",
-        f"نوصي بوضع خطة علاجية مخصصة للمتعلم **{name}** لتعزيز المكتسبات، بناءً على نتيجة التقييم الحالية ({percentage:.1f}%).",
-    ]
-    
-    if percentage >= 85: intro = random.choice(openings_excellent)
-    elif percentage >= 65: intro = random.choice(openings_good)
-    else: intro = random.choice(openings_needs_support)
-    
-    narrative.append(intro)
-    
-    # helper for arabic list join
-    def arabic_join(items):
-        if not items: return ""
-        if len(items) == 1: return items[0]
-        return "، ".join(items[:-1]) + " و" + items[-1]
-
-    # 2. Strengths (Dynamic Phrasing)
-    if strengths:
-        s_phrases = ["تبرز نقاط القوة بوضوح في: ", "أظهر تمكناً ملحوظاً في: ", "من الجوانب المشرقة في أدائه: "]
-        s_text = random.choice(s_phrases)
-        s_sample = strengths[:5] # Take up to 5
-        s_text += f"{arabic_join(s_sample)}."
-        if len(strengths) > 5: s_text += " وغيرها."
-        narrative.append(s_text)
-        
-    # 3. Weaknesses (Soft & Constructive Language)
-    if weaknesses_list:
-        w_phrases = ["لتحقيق توازن في الأداء، ينصح بالتركيز على: ", "تستدعي المهارات التالية بعض الانتباه: ", "سنعمل على تعزيز الجوانب التالية: "]
-        w_text = random.choice(w_phrases)
-        w_text += f"{arabic_join(weaknesses_list[:5])}."
-        narrative.append(w_text)
+    # --- الخطوة 1: اختيار المقدمة بناءً على الأداء العام ---
+    if stats['overall_percentage'] >= 85:
+        opening = random.choice(ANALYSIS_TEMPLATES["opening"]["excellent"])
+    elif stats['overall_percentage'] >= 60:
+        opening = random.choice(ANALYSIS_TEMPLATES["opening"]["good"])
     else:
-        narrative.append("✅ وبفضل الله، لم يتم رصد صعوبات جوهرية، ونوصي بالاستمرار في تعزيز التحديات المعرفية.")
+        opening = random.choice(ANALYSIS_TEMPLATES["opening"]["needs_support"])
     
-    # Closing
-    closing = "إن المتابعة المستمرة والتشجيع هما المفتاح لتطوير قدرات المتعلم والوصول به إلى أقصى إمكاناته."
-    narrative.append(closing)
+    narrative_parts.append(opening)
+
+    # --- الخطوة 2: تحليل النمط المعرفي (Cognitive) ---
+    # نقارن بين درجات اللغة والرياضيات (إذا توفرت)
+    # هذا يتطلب البحث في تفاصيل data
+    math_score = 0
+    lang_score = 0
+    
+    if "academic" in data:
+        # محاولة تقديرية بسيطة
+        for subj, skills in data["academic"].items():
+            if "رياضيات" in subj:
+                math_score = sum(skills.values())
+            elif "لغة" in subj:
+                lang_score = sum(skills.values())
+    
+    if ac_score < 50:
+        cog_text = ANALYSIS_TEMPLATES["cognitive_style"]["struggling"]
+    elif math_score > lang_score + 2: # متفوق في الرياضيات
+        cog_text = ANALYSIS_TEMPLATES["cognitive_style"]["analytical"]
+    elif lang_score > math_score + 2: # متفوق في اللغة
+        cog_text = ANALYSIS_TEMPLATES["cognitive_style"]["verbal"]
+    else:
+        cog_text = ANALYSIS_TEMPLATES["cognitive_style"]["balanced"]
         
-    # Recommendations
-    action_plan = []
-    for w in weaknesses_list:
-        if w in RECOMMENDATIONS_MAP:
-            action_plan.append((w, RECOMMENDATIONS_MAP[w]))
-            
-    full_narrative = "\n\n".join(narrative) # Separated by double newlines for readable paragraphs
+    narrative_parts.append(cog_text)
+
+    # --- الخطوة 3: تحليل الشخصية والسلوك (Psycho-Social) ---
+    # نعتمد على نسبة السلوك وبعض الكلمات المفتاحية في نقاط القوة/الضعف
     
-    return full_narrative, action_plan
+    weakness_str = " ".join(stats['weaknesses'])
+    strength_str = " ".join(stats['strengths'])
+    
+    if beh_score >= 85:
+        soc_text = ANALYSIS_TEMPLATES["social_emotional"]["leader"]
+    elif "خجل" in weakness_str or "مشاركة" in weakness_str:
+        soc_text = ANALYSIS_TEMPLATES["social_emotional"]["introvert"]
+    elif "اندفاع" in weakness_str or "تركيز" in weakness_str or "حركة" in weakness_str:
+        soc_text = ANALYSIS_TEMPLATES["social_emotional"]["impulsive"]
+    elif beh_score < 50:
+         soc_text = ANALYSIS_TEMPLATES["social_emotional"]["dependent"]
+    else:
+         # حالة افتراضية جيدة
+         soc_text = "يظهر تفاعلاً اجتماعياً متزناً، ويبدي احتراماً للقواعد الصفية مع رغبة في المشاركة."
+
+    narrative_parts.append(soc_text)
+
+    # --- الخطوة 4: عادات العمل ---
+    if "تركيز" in strength_str or "إكمال" in strength_str:
+        work_text = ANALYSIS_TEMPLATES["work_habits"]["focused"]
+    elif "تشتت" in weakness_str:
+        work_text = ANALYSIS_TEMPLATES["work_habits"]["distracted"]
+    else:
+        work_text = "يمتلك عادات عمل جيدة وقابلة للتطور، ويحتاج فقط إلى التذكير المستمر بالوقت."
+    
+    narrative_parts.append(work_text)
+
+    # --- الخطوة 5: الخاتمة ---
+    closing = random.choice(ANALYSIS_TEMPLATES["closing"])
+    narrative_parts.append(closing)
+
+    # تجميع النص
+    full_text = "\n\n".join(narrative_parts)
+    
+    # تطبيق الاستبدالات (يمكن تحسين هذا الجزء بتمرير الجنس للدالة)
+    for k, v in tags.items():
+        full_text = full_text.replace(k, v)
+        
+    # --- الخطة العلاجية (مبسطة ونظيفة) ---
+    # نأخذ أهم 3 نقاط ضعف فقط
+    action_plan = []
+    # قاموس التوصيات (نسخة مختصرة للأمثلة)
+    RECOMMENDATIONS_MAP = {
+         "يسمي الحروف الهجائية المدروسة": "استخدام بطاقات الصنفرة والتشكيل بالعجين.",
+         "يمسك القلم بطريقة صحيحة": "تمارين تقوية عضلات اليد (لقط الحبوب، العصر).",
+         "يعد شفوياً إلى 20": "ربط العد بالحركة (القفز مع العد).",
+         "التركيز على نشاط لمدة 15 دقيقة": "زيادة وقت المهام تدريجياً (دقيقة كل يوم).",
+         "احترام الدور والقوانين": "استخدام ألعاب الأدوار والقصص الاجتماعية.",
+         "التحكم في الانفعالات": "تدريبه على تقنيات التنفس عند الغضب.",
+         "الاعتماد على النفس": "تشجيعه على أداء مهام بسيطة بمفرده ومكافأته."
+    }
+    
+    for w in stats['weaknesses'][:4]: # نأخذ أول 4 فقط
+        # تنظيف الاسم (قد يحتوي على اسم المادة)
+        clean_name = w.split(": ")[-1] if ":" in w else w
+        if clean_name in RECOMMENDATIONS_MAP:
+            action_plan.append((clean_name, RECOMMENDATIONS_MAP[clean_name]))
+        else:
+            # توصية عامة إذا لم توجد في القاموس
+            action_plan.append((clean_name, "تكثيف التدريب المنزلي والمتابعة المستمرة."))
+
+    return full_text, action_plan
 
 def generate_text_report(student_name, student_info, evaluation_data, stats, narrative, action_plan):
-    """
-    Generates a professional text-based report mirroring the PDF structure.
-    """
+    # (نفس الدالة السابقة، لا تحتاج تعديل كبير، فقط لتوليد ملف TXT)
     report = []
-    
-    # Header
-    report.append("="*50)
-    report.append(f"تقرير التقييم الشامل - {datetime.now().strftime('%Y-%m-%d')}")
-    report.append("نظام التقييم التربوي - الإصدار 4.0")
-    report.append("="*50)
-    report.append("")
-    
-    # Student Info
-    report.append("📋 بيانات التلميذ:")
-    report.append(f"• الاسم: {student_name}")
-    report.append(f"• المستوى: {student_info.get('class_level', 'غير محدد')}")
-    report.append(f"• تاريخ الميلاد: {student_info.get('dob', 'غير محدد')}")
-    report.append("")
-    
-    # Summary
-    report.append("📊 ملخص الأداء:")
-    report.append(f"• النسبة العامة: {stats.get('overall_percentage', 0):.1f}%")
-    report.append(f"• الأداء الأكاديمي: {stats.get('academic_percentage', 0):.1f}%")
-    report.append(f"• الأداء السلوكي: {stats.get('behavioral_percentage', 0):.1f}%")
-    report.append(f"• نقاط تحتاج لتحسين: {len(stats.get('weaknesses', []))}")
-    report.append("")
-    
-    # Narrative
-    report.append("📝 التحليل النوعي:")
+    report.append(f"تقرير التقييم الشامل - {student_name}")
+    report.append("="*40)
+    report.append(f"المستوى: {student_info.get('class_level')}")
+    report.append(f"النتيجة العامة: {stats['overall_percentage']:.1f}%")
+    report.append("-" * 40)
     report.append(narrative)
-    report.append("")
-    
-    # Action Plan
-    if action_plan:
-        report.append("💡 خطة العمل المقترحة:")
-        for skill, activity in action_plan:
-            report.append(f"- {skill}: {activity}")
-        report.append("")
-        
-    # Detailed Breakdown
-    report.append("📑 التفاصيل حسب المجالات:")
-    report.append("-" * 30)
-    
-    # Academic
-    if "academic" in evaluation_data and isinstance(evaluation_data["academic"], dict):
-        report.append("\n[المواد الدراسية]")
-        for subject, skills in evaluation_data["academic"].items():
-            if isinstance(skills, dict):
-                report.append(f"\n♦ {subject}:")
-                for skill, score in skills.items():
-                    status = RATING_OPTIONS[score] if isinstance(score, int) and 0 <= score < len(RATING_OPTIONS) else "غير محدد"
-                    report.append(f"  - {skill}: {status}")
-
-    # Behavioral
-    if "behavioral" in evaluation_data and isinstance(evaluation_data["behavioral"], dict):
-        report.append("\n[المهارات السلوكية]")
-        for main_cat, sub_cats in evaluation_data["behavioral"].items():
-            if isinstance(sub_cats, dict):
-                report.append(f"\n♦ {main_cat}:")
-                for sub_cat, skills in sub_cats.items():
-                    if isinstance(skills, dict):
-                        report.append(f"  > {sub_cat}:")
-                        for skill, score in skills.items():
-                            status = RATING_OPTIONS[score] if isinstance(score, int) and 0 <= score < len(RATING_OPTIONS) else "غير محدد"
-                            report.append(f"    - {skill}: {status}")
-    
-    report.append("")
-    report.append("="*50)
-    report.append("تم إنشاء هذا التقرير آلياً بواسطة نظام التقييم الشامل.")
+    report.append("-" * 40)
+    report.append("الخطة المقترحة:")
+    for k, v in action_plan:
+        report.append(f"* {k}: {v}")
     
     return "\n".join(report)
+

@@ -6,7 +6,7 @@ import arabic_reshaper
 from bidi.algorithm import get_display
 
 # ==============================================================================
-# 1. الثوابت والبيانات (الخاصة بالقسم التحضيري)
+# 1. الثوابت والبيانات (الجداول المحدثة حسب طلبك)
 # ==============================================================================
 DATA_FILE = "students_data.json"
 
@@ -14,42 +14,29 @@ RATING_OPTIONS = ["غير مكتسب", "في طريق الاكتساب", "مكت
 RATING_MAP = {"غير مكتسب": 0, "في طريق الاكتساب": 1, "مكتسب": 2}
 
 ACADEMIC_SUBJECTS = {
-    "المجال اللغوي": [
-        "يتعرف على الصفات والألوان وظروف المكان ويعبر بها",
-        "يعبر باستخدام جمل فعلية مركبة والزمن الماضي",
-        "يستخرج ويربط بين الأصوات والحروف المدروسة",
-        "يرسم الحروف المدروسة (ف، د، ز، ج، ت، ح، س، ش، خ، م) بشكل صحيح"
+    "اللغة العربية": [
+        "يسمي الحروف الهجائية المدروسة",
+        "يميز صواتيا بين الحروف",
+        "يمسك القلم بطريقة صحيحة"
     ],
     "الرياضيات": [
-        "يعد ويتعرف على الأعداد من 1 إلى 8 والأعداد الرتبية",
-        "يميز الاتجاهات (يمين/يسار) ومفهومي الانطلاق والوصول",
-        "يتعرف على الأشكال الهندسية المدروسة",
-        "يقارن بين الكميات (أكثر من/أقل من، بقدر) والأطوال",
-        "يصنف العناصر ضمن تجمعات"
+        "يعد شفويا إلى 20",
+        "يربط العدد بالمعدود",
+        "يميز الأشكال الهندسية",
+        "يصنف الأشياء حسب خاصية معينة",
+        "يتعرف على الأعداد حتى 10"
     ],
     "التربية الإسلامية والمدنية": [
-        "يحفظ سورتي الفلق والنصر وحديث الإتقان ودعاء طلب العلم",
-        "يتحلى بآداب النظافة والصدق والعطف والاحترام والتسامح والأمانة",
-        "يتعرف على قواعد التغذية السليمة وفوائد الماء",
-        "يتعرف على محيطه (الحي، المدينة، المهن، وسائل الاتصال)",
-        "يحافظ على البيئة (زراعة النباتات، تصنيف النفايات)"
+        "يحفظ قصار السور المقررة",
+        "يلقي التحية ويردها",
+        "يحافظ على نظافة مكانه",
+        "يتعاون مع زملائه",
+        "يحترم المعلم والزملاء"
     ],
-    "التربية العلمية والتكنولوجية": [
-        "يميز بين مصادر الغذاء (نباتي وحيواني)",
-        "يتعرف على الكائنات الحية وخصائصها (تنفس وتغذية النبات)",
-        "يدرك وجود وأهمية الماء في الطبيعة",
-        "يتعرف على المادة ومشتقاتها والأدوات التكنولوجية الحديثة"
-    ],
-    "التربية الفنية": [
-        "يشتق الألوان ويلون الفضاءات والأشكال",
-        "يشكل المسطحات والمجسمات (هرم، مكعب، أسطوانة)",
-        "يميز أصوات الطبيعة ويؤدي إيقاعات بالأطراف والآلات",
-        "يؤدي أدواراً مسرحية وتعبيرات جسدية وصوتية"
-    ],
-    "التربية البدنية الإيقاعية": [
-        "يشارك بفعالية في الألعاب الرياضية الجماعية (ككرة القدم والتتابع)",
-        "يؤدي وضعيات رياضية متنوعة (المشي، الجري، القفز، التسلق، الرمي)",
-        "يستعمل الأدوات الرياضية كالحلقات ويؤدي رقصات رياضية"
+    "التربية العلمية": [
+        "يسمي أعضاء جسم الإنسان",
+        "يميز بين الحواس الخمس",
+        "يعرف الحيوانات الأليفة والمتوحشة"
     ]
 }
 
@@ -59,11 +46,11 @@ BEHAVIORAL_SKILLS = {
         "المرونة والتفكير": ["الانتقال بين الأنشطة بسلاسة", "تقبل التغيير في الروتين", "إدراك التسلسل المنطقي للأحداث", "حل المشكلات البسيطة", "يطرح أسئلة ذكية"]
     },
     "الكفاءة الاجتماعية": {
-        "التطور الشخصي": ["التعبير عن المشاعر بدقة", "الثقة بالنفس والمبادرة", "المشاركة في اللعب الجماعي", "احترام الدور والقوانين", "التحكم في الانفعالات", "تقدير الذات والإيجابية"],
+        "التطور الشخصي والاجتماعي": ["التعبير عن المشاعر بدقة", "الثقة بالنفس والمبادرة", "المشاركة في اللعب الجماعي", "احترام الدور والقوانين", "التحكم في الانفعالات", "تقدير الذات والإيجابية"],
         "المهارات العاطفية": ["التعاطف مع الآخرين", "التعبير عن الحاجة للمساعدة", "تحمل المسؤولية", "التكيف مع المواقف الجديدة"]
     },
     "المهارات الحركية": {
-        "النمو الحركي": ["استخدام المقص بدقة", "تلوين داخل الحدود", "التوازن (الوقوف على قدم واحدة)", "التقاط الكرة ورميها", "القفز على قدمين معاً"],
+        "النمو الحركي": ["استخدام المقص بدقة", "تلوين داخل الحدود", "التوازن (الوقوف على قدم واحدة)", "التقاط الكرة ورميها", "القفز على قدمين معا"],
         "الاستقلالية": ["الاعتماد على النفس (لبس، حمام، ترتيب)", "تناول الطعام بنفسه", "ترتيب الأدوات المدرسية", "العناية بالنظافة الشخصية"]
     }
 }
@@ -72,11 +59,11 @@ ANALYSIS_TEMPLATES = {
     "opening": {
         "excellent": [
             "أبان{adj} {student} {name} عن كفاءة عالية في استيعاب الكفاءات القاعدية المقررة، محققاً تقدماً نوعياً وشاملاً في مختلف المجالات التعلمية.",
-            "{vs}تميز {student} {name} بجاهزية ذهنية ممتازة، حيث {vs}ظهر تحكماً دقيقاً في توظيف المكتسبات اللغوية والرياضية التي تم تناولها خلال هذه المرحلة."
+            "{vs}تميز {student} {name} بجاهزية ذهنية ممتازة، حيث {vs}ظهر تحكماً دقيقاً في توظيف المكتسبات التي تم تناولها خلال هذه المرحلة."
         ],
         "good": [
-            "{vs}سير {student} {name} بخطى ثابتة نحو تحقيق الأهداف التعلمية المسطرة، حيث {vs}ظهر تجاوباً إيجابياً وملحوظاً مع التعلمات اللغوية والعلمية المقررة.",
-            "أظهر{adj} {student} {name} تطوراً مستمراً في اكتساب المعارف الأساسية، مع نمو تدريجي وواضح في مهارات{s} المعرفية والتواصلية داخل القسم."
+            "{vs}سير {student} {name} بخطى ثابتة نحو تحقيق الأهداف التعلمية المسطرة، حيث {vs}ظهر تجاوباً إيجابياً وملحوظاً مع التعلمات المقررة.",
+            "أظهر{adj} {student} {name} تطوراً مستمراً في اكتساب المعارف الأساسية، مع نمو تدريجي وواضح في مهارات{s} المعرفية والتواصلية."
         ],
         "needs_support": [
             "{vs}واجه {student} {name} بعض التحديات في مسايرة وتيرة بناء التعلمات، مما يتطلب تكييفاً للمفاهيم الرياضية واللغوية لدعم استيعاب{s} التدريجي.",
@@ -84,20 +71,20 @@ ANALYSIS_TEMPLATES = {
         ]
     },
     "cognitive_style": { 
-        "analytical": "من الناحية المعرفية، {vs}ظهر تفوقاً ملموساً في المجالين الرياضي والعلمي، حيث {vs}تحكم في بناء المفاهيم العددية والتنظيم الفضائي، مع قدرة واضحة على تصنيف واستنتاج خصائص الأشياء.",
-        "verbal": "{vs}تميز بتقدم لافت في المجال اللغوي، حيث {vs}جيد التعبير الشفوي وتوظيف الصفات، مع قدرة ممتازة على التمييز السمعي للأصوات وتجريد ورسم الحروف المدروسة.",
-        "balanced": "{vs}عكس مسار{s} التعلمي توازناً ممتازاً؛ حيث {vs}جمع بين التمكن من أنشطة القراءة والتخطيط لغوياً، وبين الاستيعاب السليم للعمليات المنطقية والأعداد رياضياً.",
+        "analytical": "من الناحية المعرفية، {vs}ظهر تفوقاً ملموساً في المجالين الرياضي والعلمي، حيث {vs}تحكم في بناء المفاهيم العددية، مع قدرة واضحة على تصنيف الأشياء واستنتاج خصائصها.",
+        "verbal": "{vs}تميز بتقدم لافت في اللغة العربية، حيث {vs}جيد التعبير الشفوي، مع قدرة ممتازة على التمييز السمعي للأصوات وتجريد الحروف.",
+        "balanced": "{vs}عكس مسار{s} التعلمي توازناً ممتازاً؛ حيث {vs}جمع بين التمكن من أنشطة القراءة لغوياً، وبين الاستيعاب السليم للعمليات المنطقية والأعداد رياضياً.",
         "struggling": "{vs}جد صعوبة نسبية في تجريد المفاهيم اللغوية والرياضية، و{vs}حتاج إلى توظيف مكثف للوسائل الحسية والملموسة لترسيخ الأعداد والحروف وتجاوز هذه العقبة."
     },
     "social_emotional": {
         "leader": "اجتماعياً، {vs}جسد القيم المدروسة في التربية الإسلامية والمدنية بامتياز، حيث {vs}ظهر روحاً قيادية وتفاعلاً إيجابياً في تطبيق قواعد النظافة، التعاون، واحترام الآخرين.",
         "introvert": "{vs}ميل إلى الهدوء في القسم، إلا أن{s} {vs}ستوعب جيداً قواعد الحياة الجماعية والسلوكيات المدنية المدروسة، حيث {vs}فضل تطبيقها بصمت وتأمل بعيداً عن الصخب.",
-        "impulsive": "{vs}تسم سلوك{s} بالحركية والاندفاع، مما {vs}جعل{s} يتألق في أنشطة المجال البدني والألعاب الجماعية، مع الحاجة لتهذيب هذه الطاقة في مواقف التعلم التي تتطلب هدوءاً.",
+        "impulsive": "{vs}تسم سلوك{s} بالحركية والاندفاع، مما {vs}جعل{s} يتألق في الأنشطة الحركية، مع الحاجة لتهذيب هذه الطاقة في مواقف التعلم التي تتطلب هدوءاً.",
         "dependent": "{vs}ظهر تردداً في المبادرات الاجتماعية، و{vs}حتاج إلى تعزيز ثقت{s} بنفس{s} لترجمة ما تعلم{s} في مجالي التربية الإسلامية والمدنية إلى ممارسات وسلوكيات يومية واثقة."
     },
     "work_habits": {
-        "focused": "{vs}تميز بتركيز عالٍ ودقة في إنجاز المهام، وهو ما ينعكس جلياً في جودة أعمال{s} في المجال الفني من تلوين وتشكيل، والتزام{s} الصارم بتعليمات العمل.",
-        "distracted": "{vs}تأثر انتباه{s} بسرعة بالمحيط، مما يستوجب دمج الألعاب الإيقاعية والأنشطة الحركية ضمن مسار{s} التعلمي لتجديد نشاط{s} وضمان استمرارية تركيز{s}."
+        "focused": "{vs}تميز بتركيز عالٍ ودقة في إنجاز المهام، والتزام{s} الصارم بتعليمات العمل الموجهة.",
+        "distracted": "{vs}تأثر انتباه{s} بسرعة بالمحيط، مما يستوجب دمج الألعاب والأنشطة الحركية ضمن مسار{s} التعلمي لتجديد نشاط{s} وضمان استمرارية تركيز{s}."
     }
 }
 
@@ -174,25 +161,21 @@ def analyze_student_performance(name, data, gender="ذكر"):
 
     narrative_parts = []
 
-    # الافتتاحية
     if stats['overall_percentage'] >= 85: opening = random.choice(ANALYSIS_TEMPLATES["opening"]["excellent"])
     elif stats['overall_percentage'] >= 60: opening = random.choice(ANALYSIS_TEMPLATES["opening"]["good"])
     else: opening = random.choice(ANALYSIS_TEMPLATES["opening"]["needs_support"])
     narrative_parts.append(opening)
 
-    # النمط المعرفي
     if ac_score < 50: cog_text = ANALYSIS_TEMPLATES["cognitive_style"]["struggling"]
     elif ac_score >= 85: cog_text = ANALYSIS_TEMPLATES["cognitive_style"]["analytical"]
     else: cog_text = ANALYSIS_TEMPLATES["cognitive_style"]["balanced"]
     narrative_parts.append(cog_text)
 
-    # الاجتماعي العاطفي
     if beh_score >= 85: soc_text = ANALYSIS_TEMPLATES["social_emotional"]["leader"]
     elif beh_score < 50: soc_text = ANALYSIS_TEMPLATES["social_emotional"]["dependent"]
     else: soc_text = "{vs}ظهر تفاعلاً اجتماعياً متزناً، و{vs}بدي احتراماً للقواعد الصفية مع رغبة في المشاركة."
     narrative_parts.append(soc_text)
 
-    # عادات العمل
     weakness_str = " ".join(stats['weaknesses'])
     if "تشتت" in weakness_str or "تركيز" in weakness_str: work_text = ANALYSIS_TEMPLATES["work_habits"]["distracted"]
     else: work_text = ANALYSIS_TEMPLATES["work_habits"]["focused"] if ac_score > 70 else "{vs}حتاج إلى مزيد من المثابرة لإتمام المهام."
@@ -205,27 +188,15 @@ def analyze_student_performance(name, data, gender="ذكر"):
     if is_female:
         full_text = full_text.replace("متميز ", "متميزة ").replace("مبدع ", "مبدعة ")
 
-    # الخطة العلاجية
     action_plan = []
-    REC_MAP = {
-         "يستخرج ويربط بين الأصوات والحروف المدروسة": "استخدام بطاقات الصنفرة والتشكيل بالعجين للحروف.",
-         "يرسم الحروف المدروسة (ف، د، ز، ج، ت، ح، س، ش، خ، م) بشكل صحيح": "تمارين تقوية عضلات اليد الدقيقة والتخطيط على الرمل.",
-         "يعد ويتعرف على الأعداد من 1 إلى 8 والأعداد الرتبية": "ربط العد بالحركة (القفز مع العد) واستخدام الخشيبات.",
-         "التركيز على نشاط لمدة 15 دقيقة": "زيادة وقت المهام تدريجياً (دقيقة كل يوم).",
-         "احترام الدور والقوانين": "استخدام ألعاب الأدوار والقصص الاجتماعية.",
-         "التحكم في الانفعالات": "تدريبه على تقنيات التنفس عند الغضب.",
-         "الاعتماد على النفس (لبس، حمام، ترتيب)": "تشجيعه على أداء مهام بسيطة بمفرده ومكافأته.",
-         "تذكر تعليمات من 3 خطوات": "لعبة 'أحضر لي' بطلبات متزايدة.",
-         "استخدام المقص بدقة": "قص العجين أو خطوط عريضة مستقيمة أولاً."
-    }
     for w in stats['weaknesses'][:4]:
         clean = w.split(": ")[-1] if ":" in w else w
-        action_plan.append((clean, REC_MAP.get(clean, "التدريب المكثف والمتابعة المستمرة.")))
+        action_plan.append((clean, "المتابعة والتدريب المستمر."))
 
     return full_text, action_plan
 
 # ==============================================================================
-# 3. توليد ملف الـ PDF (المدعوم باللغة العربية وإصلاح التفاف النص)
+# 3. توليد ملف الـ PDF (المحرك الذكي لمعالجة السطور العربية)
 # ==============================================================================
 class PDFReport(FPDF):
     def __init__(self, student_name, student_info):
@@ -235,7 +206,6 @@ class PDFReport(FPDF):
         self.custom_font_loaded = False
         self.font_family = 'Helvetica'
         
-        # إعداد الخطوط (تأكد من وجود المجلد assets/fonts وبداخله الخطوط)
         base_path = os.path.dirname(os.path.abspath(__file__))
         self.path_reg = os.path.join(base_path, 'assets', 'fonts', 'Amiri-Regular.ttf')
         self.path_bold = os.path.join(base_path, 'assets', 'fonts', 'Amiri-Bold.ttf')
@@ -249,26 +219,48 @@ class PDFReport(FPDF):
              except: pass
 
     def process_text(self, text):
-        """ لمعالجة النصوص العربية وعكسها بشكل صحيح سطر بسطر """
+        """ لمعالجة الكلمات القصيرة والسطور الفردية فقط """
         if not self.custom_font_loaded or not text: 
             return str(text)
         try:
-            text_str = str(text)
-            if '\n' in text_str:
-                lines = text_str.split('\n')
-                processed_lines = []
-                for line in lines:
-                    if line.strip():
-                        reshaped = arabic_reshaper.reshape(line)
-                        processed_lines.append(get_display(reshaped))
-                    else:
-                        processed_lines.append("")
-                return '\n'.join(processed_lines)
-            else:
-                reshaped = arabic_reshaper.reshape(text_str)
-                return get_display(reshaped)
+            return get_display(arabic_reshaper.reshape(str(text)))
         except: 
             return str(text)
+
+    def get_arabic_lines(self, width, text):
+        """
+        الحل السحري: هذه الدالة تحسب طول الكلمات وتقوم بتكسير الأسطر بشكل صحيح
+        بناءً على العرض المتاح، قبل أن تقوم بتطبيق Bidi، مما يمنع قلب الكلمات!
+        """
+        if not self.custom_font_loaded:
+            return [str(text)]
+            
+        lines = []
+        for para in str(text).split('\n'):
+            para = para.strip()
+            if not para:
+                continue
+                
+            reshaped = arabic_reshaper.reshape(para)
+            words = reshaped.split()
+            current_line = ""
+            
+            for word in words:
+                test_line = current_line + " " + word if current_line else word
+                # التأكد من عرض الكلمة باستخدام get_string_width
+                if self.get_string_width(test_line) > (width - 2):
+                    if current_line:
+                        lines.append(get_display(current_line))
+                        current_line = word
+                    else: # الكلمة نفسها أكبر من الخانة!
+                        lines.append(get_display(word))
+                        current_line = ""
+                else:
+                    current_line = test_line
+                    
+            if current_line:
+                lines.append(get_display(current_line))
+        return lines
 
     def header(self):
         self.set_fill_color(240, 240, 240)
@@ -391,11 +383,12 @@ class PDFReport(FPDF):
             self.set_font(self.font_family, 'B', 9)
             self.set_fill_color(248, 248, 248)
             
+            # طباعة العناوين العلوية لكل عمود
             for subj, skills in batch:
                 total = sum(s for _, s in skills); max_s = len(skills)*2
                 pct = (total/max_s*100) if max_s else 0
                 self.set_xy(curr_x, top_y)
-                self.multi_cell(col_width, 7, self.process_text(f"{subj} ({pct:.0f}%)"), 1, 'C', True)
+                self.cell(col_width, 7, self.process_text(f"{subj} ({pct:.0f}%)"), 1, 0, 'C', True)
                 curr_x += col_width
             
             self.set_y(top_y + 7)
@@ -404,17 +397,33 @@ class PDFReport(FPDF):
             curr_x = 10
             self.set_font(self.font_family, '', 8)
             
+            # طباعة الدروس والمهارات
             for subj, skills in batch:
                 col_y = start_y
                 for skill, score in skills:
                     if col_y > 270: break
+                    
+                    # استخدام الدالة الجديدة للحصول على الأسطر الصحيحة
+                    lines = self.get_arabic_lines(skill_w, skill)
+                    line_height = 6
+                    h = len(lines) * line_height
+                    
+                    # رسم إطارات الخانات
                     self.set_xy(curr_x, col_y)
-                    self.multi_cell(skill_w, 6, self.process_text(skill), 1, 'R')
-                    h = self.get_y() - col_y
-                    self.set_xy(curr_x + skill_w, col_y)
-                    self.cell(mark_w, h, "", 1) 
-                    self.draw_custom_symbol(curr_x+skill_w+(mark_w-3.5)/2, col_y+(h-3.5)/2, 3.5, score)
+                    self.rect(curr_x, col_y, skill_w, h)
+                    self.rect(curr_x + skill_w, col_y, mark_w, h)
+                    
+                    # كتابة النص داخل الإطار
+                    ty = col_y
+                    for sl in lines:
+                        self.set_xy(curr_x, ty)
+                        self.cell(skill_w, line_height, sl, 0, 0, 'R')
+                        ty += line_height
+                    
+                    # رسم الرمز (الصح/الدائرة/الخطأ)
+                    self.draw_custom_symbol(curr_x + skill_w + (mark_w - 3.5)/2, col_y + (h - 3.5)/2, 3.5, score)
                     col_y += h
+                    
                 if col_y > max_y: max_y = col_y
                 curr_x += col_width
             self.set_y(max_y + 5)
@@ -424,12 +433,11 @@ class PDFReport(FPDF):
         self.set_font(self.font_family, 'B', 14)
         self.cell(0, 10, self.process_text("التقرير التربوي الختامي"), 0, 1, 'C')
         self.ln(5)
-        self.set_fill_color(245, 247, 250) 
-        self.set_draw_color(100, 100, 150) 
-        self.set_line_width(0.3)
         
         box_top = self.get_y()
-        self.rect(10, box_top, 190, 100, 'DF') 
+        self.set_fill_color(245, 247, 250)
+        # نرسم المستطيل بارتفاع افتراضي، سنعدله لاحقاً
+        self.rect(10, box_top, 190, 100, 'F') 
         
         self.set_xy(15, box_top + 5)
         self.set_font(self.font_family, 'B', 12)
@@ -440,17 +448,21 @@ class PDFReport(FPDF):
         self.set_font(self.font_family, '', 11)
         self.set_text_color(0)
 
-        # تقسيم التقرير إلى فقرات لتفادي مشكلة قلب النص
-        paragraphs = narrative.split('\n\n')
-        for p in paragraphs:
-            if p.strip():
-                self.multi_cell(180, 7, self.process_text(p), 0, 'R')
-                self.set_x(15) 
-                self.ln(2) 
+        # الاعتماد على الدالة الجديدة لتقسيم النص بطريقة احترافية
+        lines = self.get_arabic_lines(180, narrative)
+        for line in lines:
+            if line == "":
+                self.ln(3) # مسافة بين الفقرات
+            else:
+                self.set_x(15)
+                self.cell(180, 7, line, 0, 1, 'R')
 
         final_y = self.get_y() + 5
         height = final_y - box_top
-        self.set_xy(10, box_top)
+        
+        # رسم الإطار النهائي على حسب طول النص
+        self.set_draw_color(100, 100, 150)
+        self.set_line_width(0.3)
         self.rect(10, box_top, 190, height, 'D')
         self.set_y(final_y + 10)
 

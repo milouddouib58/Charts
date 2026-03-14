@@ -155,9 +155,9 @@ def analyze_student_performance(student_name, evals, gender):
     """
 
     try:
-        # استدعاء نموذج Meta-Llama 70B كما طلبت
+        # استدعاء نموذج Qwen كما طلبت
         response = client.chat.completions.create(
-            model="Meta-Llama-3.3-70B-Instruct", 
+            model="Qwen3-32B", 
             messages=[
                 {"role": "system", "content": "أنت خبير تربوي دقيق. استجابتك يجب أن تكون بصيغة JSON صحيحة 100% فقط، بدون أي نصوص إضافية، وبدون استخدام علامات Markdown مثل ```json."},
                 {"role": "user", "content": prompt}

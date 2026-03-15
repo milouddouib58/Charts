@@ -157,7 +157,7 @@ def analyze_student_performance(student_name, evals, gender):
     try:
         # استدعاء نموذج Meta-Llama 70B
         response = client.chat.completions.create(
-            model="Meta-Llama-3.1-70B-Instruct", 
+            model="gpt-oss-120b", 
             messages=[
                 {"role": "system", "content": "أنت خبير تربوي دقيق. استجابتك يجب أن تكون بصيغة JSON صحيحة 100% فقط."},
                 {"role": "user", "content": prompt}

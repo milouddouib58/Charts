@@ -157,7 +157,7 @@ def analyze_student_performance(student_name, evals, gender):
     try:
         # استدعاء نموذج llama3.1-70b من Cerebras
         response = client.chat.completions.create(
-            model="llama3.1- 8b", 
+            model="llama3.1-8b", 
             messages=[
                 {"role": "system", "content": "أنت خبير تربوي دقيق. استجابتك يجب أن تكون بصيغة JSON صحيحة 100% فقط."},
                 {"role": "user", "content": prompt}

@@ -168,11 +168,17 @@ def analyze_student_performance(student_name, evals, gender):
 
         result_text = response.choices[0].message.content.strip()
         
+        # إزالة علامات Markdown إذا أضافها النموذج
+        if result_text.startswith("```json"):
+            result_text = result_text.replace("```json", "", 1)
+        if result_text.endswith("```"):
+            result_text = result_text.rpartition("```")[0]
+            
         # استخراج JSON بذكاء وتجاهل أي نص إضافي
         start_idx = result_text.find('{')
         end_idx = result_text.rfind('}')
         
-        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+        if start_idx != -1 and end_idx != -1 and end_idx >= start_idx:
             clean_json_str = result_text[start_idx:end_idx+1]
         else:
             clean_json_str = result_text # محاولة قراءة النص كاملاً كخطة بديلة
@@ -191,3 +197,25 @@ def analyze_student_performance(student_name, evals, gender):
     except Exception as e:
         print(f"API Error: {e}")
         return f"حدث خطأ أثناء الاتصال بمزود الذكاء الاصطناعي: {str(e)}", []
+
+# ==========================================
+# 6. توليد التقارير النصية (مضافة حديثاً)
+# ==========================================
+def generate_text_report(name, info, data, stats, narrative, action_plan):
+    """توليد تقرير نصي شامل كبديل للـ PDF"""
+    report = f"=== تقرير التقييم الشامل ===\n"
+    report += f"الاسم: {name}\n"
+    report += f"المستوى: {info.get('class_level', 'غير محدد')}\n"
+    report += f"الأداء العام: {stats.get('overall_percentage', 0):.1f}%\n"
+    report += "-" * 30 + "\n"
+    
+    report += "التحليل التربوي:\n"
+    report += f"{narrative}\n"
+    report += "-" * 30 + "\n"
+    
+    report += "خطة العمل:\n"
+    for title, detail in action_plan:
+         report += f"- {title}: {detail}\n"
+         
+    return report
+

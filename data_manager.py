@@ -157,12 +157,12 @@ def analyze_student_performance(student_name, evals, gender):
     try:
         # استدعاء نموذج Qwen كما طلبت
         response = client.chat.completions.create(
-            model="Qwen3-32B", 
+            model="gpt-oss-120b", 
             messages=[
                 {"role": "system", "content": "أنت خبير تربوي دقيق. استجابتك يجب أن تكون بصيغة JSON صحيحة 100% فقط، بدون أي نصوص إضافية، وبدون استخدام علامات Markdown مثل ```json."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.7,
+            temperature=0.4,
             max_tokens=1000
         )
 

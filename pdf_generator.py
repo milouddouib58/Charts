@@ -30,13 +30,55 @@ class PDFReport(FPDF):
             return get_display(arabic_reshaper.reshape(str(text)))
         except: return str(text)
 
+    # --- دالة جديدة مخصصة لطباعة الفقرات العربية الطويلة بترتيب صحيح ---
+    def arabic_multi_cell(self, w, h, text, align='R'):
+        if not self.custom_font_loaded:
+            self.multi_cell(w, h, str(text), 0, align)
+            return
+            
+        try:
+            import arabic_reshaper
+            from bidi.algorithm import get_display
+            
+            # 1. التشكيل وربط الحروف
+            reshaped_text = arabic_reshaper.reshape(str(text))
+            
+            # 2. تقسيم النص إلى فقرات
+            paragraphs = reshaped_text.split('\n')
+            
+            for paragraph in paragraphs:
+                if not paragraph.strip():
+                    self.ln(h)
+                    continue
+                    
+                words = paragraph.split(' ')
+                line = ""
+                
+                for word in words:
+                    # اختبار عرض السطر إذا أضفنا الكلمة الجديدة
+                    test_line = line + " " + word if line else word
+                    
+                    # إذا تجاوز السطر العرض المسموح (مع ترك هامش بسيط 5 ملم)
+                    if self.get_string_width(test_line) > (w - 5): 
+                        # طباعة السطر الحالي بعد عكسه بـ bidi
+                        if line:
+                            self.cell(w, h, get_display(line), 0, 1, align)
+                        # البدء بسطر جديد
+                        line = word
+                    else:
+                        line = test_line
+                        
+                # طباعة ما تبقى من السطر الأخير في الفقرة
+                if line:
+                    self.cell(w, h, get_display(line), 0, 1, align)
+                    
+        except ImportError:
+            self.multi_cell(w, h, str(text), 0, align)
+
     # --- 5. ترويسة التقرير (Header) ---
     def header(self):
-        # 1. مكان الشعار (مربع رمادي مؤقت)
-        # إذا توفرت صورة: self.image('logo.png', 10, 8, 33)
         self.set_fill_color(240, 240, 240)
         self.set_draw_color(200, 200, 200)
-        # self.rect(10, 8, 25, 25, 'F') # فعل هذا السطر إذا أردت مربعاً للشعار
         
         # 2. العناوين
         self.set_y(15)
@@ -44,7 +86,8 @@ class PDFReport(FPDF):
         self.cell(0, 10, self.process_text('بطاقة التقييم الفصلي'), 0, 1, 'C')
         
         self.set_font(self.font_family, '', 10)
-        self.cell(0, 5, self.process_text('السنة الدراسية: 2024 / 2025'), 0, 1, 'C')
+        # تم تصحيح السنة الدراسية هنا
+        self.cell(0, 5, self.process_text('السنة الدراسية: 2025 / 2026'), 0, 1, 'C') 
         
         # 3. خط فاصل ملون (أزرق غامق)
         self.ln(5)
@@ -63,7 +106,6 @@ class PDFReport(FPDF):
 
     def draw_signatures_fixed(self):
         """رسم التوقيعات في أسفل الصفحة الثانية دائماً"""
-        # نذهب لموقع ثابت في الأسفل (مثلاً 240 من أصل 297)
         self.set_y(-50) 
         
         self.set_font(self.font_family, 'B', 11)
@@ -89,7 +131,7 @@ class PDFReport(FPDF):
         self.line(156, line_y, 181, line_y)
         self.set_draw_color(0) # Reset
 
-    # --- تفاصيل الطالب (كما هي، جيدة) ---
+    # --- تفاصيل الطالب ---
     def draw_student_details(self):
         start_y = self.get_y()
         self.set_fill_color(250, 250, 252)
@@ -127,16 +169,16 @@ class PDFReport(FPDF):
     def draw_custom_symbol(self, x, y, size, score):
         self.set_line_width(0.4)
         if score == 2: # مكتسب (أخضر)
-            self.set_draw_color(39, 174, 96) # Green
+            self.set_draw_color(39, 174, 96) 
             self.line(x, y + size/2, x + size/3, y + size)
             self.line(x + size/3, y + size, x + size, y)
         elif score == 1: # في طريق الاكتساب (برتقالي)
-            self.set_draw_color(243, 156, 18) # Orange
+            self.set_draw_color(243, 156, 18) 
             self.set_fill_color(243, 156, 18)
             r = size / 2.5
             self.circle(x + size/2, y + size/2, r, 'F')
         elif score == 0: # غير مكتسب (أحمر)
-            self.set_draw_color(192, 57, 43) # Red
+            self.set_draw_color(192, 57, 43) 
             self.line(x, y, x + size, y + size)
             self.line(x + size, y, x, y + size)
         self.set_draw_color(0)
@@ -180,7 +222,6 @@ class PDFReport(FPDF):
             self.set_fill_color(248, 248, 248)
             
             for subj, skills in batch:
-                # حساب النسبة
                 total = sum(s for _, s in skills); max_s = len(skills)*2
                 pct = (total/max_s*100) if max_s else 0
                 
@@ -217,31 +258,28 @@ class PDFReport(FPDF):
     def draw_analysis_section(self, narrative):
         self.add_page()
         
-        # العنوان الرئيسي للصفحة 2
         self.set_font(self.font_family, 'B', 14)
         self.cell(0, 10, self.process_text("التقرير التربوي الختامي"), 0, 1, 'C')
         self.ln(5)
         
-        # الإطار والعنوان الفرعي
-        self.set_fill_color(245, 247, 250) # أزرق/رمادي فاتح جداً
-        self.set_draw_color(100, 100, 150) # إطار ملون خفيف
+        self.set_fill_color(245, 247, 250) 
+        self.set_draw_color(100, 100, 150) 
         self.set_line_width(0.3)
         
         # رسم خلفية الصندوق
         box_top = self.get_y()
-        self.rect(10, box_top, 190, 100, 'DF') # ارتفاع مبدئي 100، النص سيحدد الفعلي
+        self.rect(10, box_top, 190, 100, 'DF') 
         
         self.set_xy(15, box_top + 5)
         self.set_font(self.font_family, 'B', 12)
-        self.set_text_color(44, 62, 80) # لون كحلي للعنوان
-        # أيقونة بسيطة (حرف)
+        self.set_text_color(44, 62, 80) 
         self.cell(0, 10, self.process_text("📝 تحليل شخصية وأداء المتعلم:"), 0, 1, 'R')
         
-        # متن التحليل
+        # استخدام الدالة الجديدة لمتن التحليل بدلاً من multi_cell
         self.set_xy(15, box_top + 15)
         self.set_font(self.font_family, '', 11)
         self.set_text_color(0)
-        self.multi_cell(180, 7, self.process_text(narrative), 0, 'R')
+        self.arabic_multi_cell(180, 7, narrative, 'R')
         
         # إعادة رسم الإطار ليتناسب مع طول النص الفعلي
         final_y = self.get_y() + 5
@@ -251,13 +289,11 @@ class PDFReport(FPDF):
         
         self.set_y(final_y + 10)
 
-    # دالة التوليد
     def generate(self, evaluation_data, narrative, action_plan):
         self.add_page()
         self.draw_student_details()
         self.draw_legend()
         
-        # رسم الجداول (كما هي 3 أعمدة)
         for cat in ["academic", "behavioral"]:
             groups = {}
             if cat in evaluation_data:
@@ -271,10 +307,7 @@ class PDFReport(FPDF):
             title = "التحصيل الدراسي" if cat == "academic" else "المهارات السلوكية"
             self.draw_columnar_table(title, groups, 3)
 
-        # الصفحة الثانية: التحليل فقط
         self.draw_analysis_section(narrative)
-        
-        # التوقيعات في الأسفل دائماً
         self.draw_signatures_fixed()
 
         return bytes(self.output())

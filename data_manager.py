@@ -110,23 +110,23 @@ def calculate_scores(evals):
     return result
 
 # ==========================================
-# 5. التحليل الذكي عبر SambaNova
+# 5. التحليل الذكي عبر Cerebras
 # ==========================================
 def analyze_student_performance(student_name, evals, gender):
     """
-    تحليل بيانات التلميذ باستخدام ذكاء SambaNova 
+    تحليل بيانات التلميذ باستخدام ذكاء Cerebras 
     لإرجاع تقرير سردي وخطة عمل مقترحة.
     """
     # التحقق من وجود مفتاح API
     try:
-        api_key = st.secrets["SAMBANOVA_API_KEY"]
+        api_key = st.secrets["CEREBRAS_API_KEY"]
     except KeyError:
-        return "⚠️ تنبيه: لم يتم العثور على مفتاح SambaNova في إعدادات الأمان (Secrets).", []
+        return "⚠️ تنبيه: لم يتم العثور على مفتاح Cerebras في إعدادات الأمان (Secrets).", []
 
     # إعداد عميل الاتصال
     client = OpenAI(
         api_key=api_key,
-        base_url="https://api.sambanova.ai/v1",
+        base_url="https://api.cerebras.ai/v1",
     )
 
     # حساب الدرجات لتزويد الذكاء الاصطناعي بها
@@ -155,9 +155,9 @@ def analyze_student_performance(student_name, evals, gender):
     """
 
     try:
-        # استدعاء نموذج Meta-Llama 70B
+        # استدعاء نموذج llama3.1-70b من Cerebras
         response = client.chat.completions.create(
-            model="gpt-oss-120b", 
+            model="llama3.1-70b", 
             messages=[
                 {"role": "system", "content": "أنت خبير تربوي دقيق. استجابتك يجب أن تكون بصيغة JSON صحيحة 100% فقط."},
                 {"role": "user", "content": prompt}
@@ -199,7 +199,7 @@ def analyze_student_performance(student_name, evals, gender):
         return f"حدث خطأ أثناء الاتصال بمزود الذكاء الاصطناعي: {str(e)}", []
 
 # ==========================================
-# 6. توليد التقارير النصية (مضافة حديثاً)
+# 6. توليد التقارير النصية 
 # ==========================================
 def generate_text_report(name, info, data, stats, narrative, action_plan):
     """توليد تقرير نصي شامل كبديل للـ PDF"""

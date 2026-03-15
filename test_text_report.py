@@ -35,3 +35,4 @@ assert "75.0%" in report
 assert "Good student." in report
 assert "Sharing" in report
 assert "Math" in report
+

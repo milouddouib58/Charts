@@ -121,7 +121,7 @@ def analyze_student_performance(student_name, evals, gender):
     try:
         api_key = st.secrets["SAMBANOVA_API_KEY"]
     except KeyError:
-        return "⚠️ تنبيه: لم يتم العثور على مفتاح SambaNova في إعدادات الأمان (Secrets). يرجى إضافته لتفعيل التحليل الذكي.", []
+        return "⚠️ تنبيه: لم يتم العثور على مفتاح SambaNova في إعدادات الأمان (Secrets).", []
 
     # إعداد عميل الاتصال
     client = OpenAI(
@@ -155,29 +155,30 @@ def analyze_student_performance(student_name, evals, gender):
     """
 
     try:
-        # استدعاء نموذج Qwen كما طلبت
+        # استدعاء نموذج Meta-Llama 70B
         response = client.chat.completions.create(
-            model="gpt-oss-120b", 
+            model="Meta-Llama-3.1-70B-Instruct", 
             messages=[
-                {"role": "system", "content": "أنت خبير تربوي دقيق. استجابتك يجب أن تكون بصيغة JSON صحيحة 100% فقط، بدون أي نصوص إضافية، وبدون استخدام علامات Markdown مثل ```json."},
+                {"role": "system", "content": "أنت خبير تربوي دقيق. استجابتك يجب أن تكون بصيغة JSON صحيحة 100% فقط."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.4,
+            temperature=0.7,
             max_tokens=1000
         )
 
         result_text = response.choices[0].message.content.strip()
         
-        # تنظيف الرد (في حال أصر النموذج على إضافة علامات التنسيق)
-        if result_text.startswith("```json"):
-            result_text = result_text.replace("```json", "", 1)
-        if result_text.endswith("```"):
-            result_text = result_text[:result_text.rfind("```")]
+        # استخراج JSON بذكاء وتجاهل أي نص إضافي
+        start_idx = result_text.find('{')
+        end_idx = result_text.rfind('}')
+        
+        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+            clean_json_str = result_text[start_idx:end_idx+1]
+        else:
+            clean_json_str = result_text # محاولة قراءة النص كاملاً كخطة بديلة
             
-        result_text = result_text.strip()
-
         # تحويل النص إلى قاموس بايثون
-        parsed_data = json.loads(result_text)
+        parsed_data = json.loads(clean_json_str)
         
         narrative = parsed_data.get("narrative", "تعذر توليد التحليل التربوي بشكل صحيح.")
         action_plan = parsed_data.get("action_plan", [])
@@ -185,9 +186,8 @@ def analyze_student_performance(student_name, evals, gender):
         return narrative, action_plan
 
     except json.JSONDecodeError as e:
-        print(f"JSON Parsing Error: {e} - Response was: {result_text}")
-        return "حدث خطأ في قراءة رد الذكاء الاصطناعي. المخرجات لم تكن بتنسيق JSON صحيح.", []
+        print(f"JSON Parsing Error: {e} \nResponse was: {result_text}")
+        return "عذراً، قام الذكاء الاصطناعي بتوليد نص غير متوافق مع الهيكل المطلوب. يرجى المحاولة مرة أخرى.", []
     except Exception as e:
         print(f"API Error: {e}")
         return f"حدث خطأ أثناء الاتصال بمزود الذكاء الاصطناعي: {str(e)}", []
-

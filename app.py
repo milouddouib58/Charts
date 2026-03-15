@@ -96,14 +96,14 @@ elif menu == "تقييم المواد الدراسية":
             current = st.session_state.students[student].get("evaluations", {}).get("academic", {})
             new_data = {}
             
-            # هنا يتم استخدام ACADEMIC_SUBJECTS من data_manager
             tabs = st.tabs(list(dm.ACADEMIC_SUBJECTS.keys()))
             for i, (subj, skills) in enumerate(dm.ACADEMIC_SUBJECTS.items()):
                 with tabs[i]:
                     subj_data = {}
                     for skill in skills:
                         prev = current.get(subj, {}).get(skill, 1) 
-                        val = st.radio(skill, dm.RATING_OPTIONS, index=prev, key=f"ac_{student}_{skill}", horizontal=True)
+                        # تم إضافة subj للمفتاح لمنع التكرار
+                        val = st.radio(skill, dm.RATING_OPTIONS, index=prev, key=f"ac_{student}_{subj}_{skill}", horizontal=True)
                         subj_data[skill] = dm.RATING_MAP[val]
                     new_data[subj] = subj_data
             
@@ -128,7 +128,6 @@ elif menu == "تقييم المهارات السلوكية":
             current = st.session_state.students[student].get("evaluations", {}).get("behavioral", {})
             new_data = {}
             
-            # هنا يتم استخدام BEHAVIORAL_SKILLS من data_manager
             tabs = st.tabs(list(dm.BEHAVIORAL_SKILLS.keys()))
             for i, (main, subs) in enumerate(dm.BEHAVIORAL_SKILLS.items()):
                 with tabs[i]:
@@ -138,7 +137,8 @@ elif menu == "تقييم المهارات السلوكية":
                         sub_data = {}
                         for skill in skills:
                             prev = current.get(main, {}).get(sub, {}).get(skill, 1)
-                            val = st.radio(skill, dm.RATING_OPTIONS, index=prev, key=f"beh_{student}_{skill}", horizontal=True)
+                            # تم إضافة main و sub للمفتاح لمنع التكرار نهائياً
+                            val = st.radio(skill, dm.RATING_OPTIONS, index=prev, key=f"beh_{student}_{main}_{sub}_{skill}", horizontal=True)
                             sub_data[skill] = dm.RATING_MAP[val]
                         main_data[sub] = sub_data
                         st.markdown("---")
@@ -164,18 +164,12 @@ elif menu == "التقرير التشخيصي":
     else:
         student = st.selectbox("اختر التلميذ:", list(st.session_state.students.keys()))
         
-        # 1. جلب البيانات
         student_data = st.session_state.students[student]
         info = student_data["info"]
         evals = student_data.get("evaluations", {})
-        
-        # 2. استخراج الجنس
         gender = info.get("gender", "ذكر")
         
-        # 3. التحليل الذكي (يتم التعامل مع اللغة داخل data_manager الآن)
-        narrative, action_plan = dm.analyze_student_performance(student, evals, gender)
-        
-        # 4. عرض النتائج بالأرقام
+        # عرض النتائج بالأرقام
         scores = dm.calculate_scores(evals)
         
         c1, c2, c3 = st.columns(3)
@@ -185,20 +179,35 @@ elif menu == "التقرير التشخيصي":
         st.progress(scores['overall_percentage'] / 100)
         
         st.divider()
+
+        # إدارة استدعاء الذكاء الاصطناعي لمنع استهلاك الحد المسموح (Rate Limit)
+        ai_state_key = f"ai_report_{student}"
+        if ai_state_key not in st.session_state:
+            st.session_state[ai_state_key] = {"narrative": "", "action_plan": []}
+
+        if st.button("🤖 توليد / تحديث التحليل التربوي الذكي", type="secondary"):
+            with st.spinner("يتصل بالذكاء الاصطناعي لتحليل البيانات..."):
+                narr, plan = dm.analyze_student_performance(student, evals, gender)
+                st.session_state[ai_state_key] = {"narrative": narr, "action_plan": plan}
+
+        narrative = st.session_state[ai_state_key]["narrative"]
+        action_plan = st.session_state[ai_state_key]["action_plan"]
         
-        # 5. عرض التحليل والخطة (على الشاشة)
+        # عرض التحليل والخطة
         col_text, col_plan = st.columns([2, 1])
         
         with col_text:
             st.subheader("📝 التحليل التربوي")
-            # صندوق منسق للنص (يظهر النص صحيح لغوياً الآن)
-            st.markdown(
-                f"""
-                <div style="background-color:#f8f9fa; padding:20px; border-radius:10px; border-right: 5px solid #2e86de; font-size:16px; line-height:1.8; color:#2c3e50;">
-                {narrative.replace(chr(10), '<br>')}
-                </div>
-                """, unsafe_allow_html=True
-            )
+            if narrative:
+                st.markdown(
+                    f"""
+                    <div style="background-color:#f8f9fa; padding:20px; border-radius:10px; border-right: 5px solid #2e86de; font-size:16px; line-height:1.8; color:#2c3e50;">
+                    {narrative.replace(chr(10), '<br>')}
+                    </div>
+                    """, unsafe_allow_html=True
+                )
+            else:
+                st.info("اضغط على الزر أعلاه لتوليد التحليل باستخدام الذكاء الاصطناعي.")
 
         with col_plan:
             st.subheader("💡 الخطة المقترحة")
@@ -206,12 +215,16 @@ elif menu == "التقرير التشخيصي":
                 for item, rec in action_plan:
                     with st.expander(f"📌 {item}"):
                         st.info(rec)
-            else:
+            elif narrative and ("خطأ" in narrative or "Error" in narrative):
+                st.warning("تعذر جلب الخطة المقترحة بسبب مشكلة في الاتصال. حاول لاحقاً.")
+            elif narrative:
                 st.success("الأداء ممتاز، استمر في التشجيع!")
+            else:
+                st.caption("في انتظار التوليد...")
 
         st.divider()
         
-        # 6. قسم PDF
+        # قسم PDF
         st.subheader("📄 إصدار التقرير الرسمي")
         
         pdf_key = f"pdf_{student}_{evals.get('last_update', 'new')}"
@@ -221,7 +234,6 @@ elif menu == "التقرير التشخيصي":
                 try:
                     import pdf_generator
                     with st.spinner("جاري صياغة التقرير، رسم الجداول، وضبط التنسيق..."):
-                        # نمرر النص المصحح (narrative)
                         pdf_bytes, error = pdf_generator.create_pdf(
                             student, info, evals, narrative, action_plan
                         )

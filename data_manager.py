@@ -235,10 +235,10 @@ def calculate_scores(evals):
     return result
 
 # ==========================================
-# 5. التحليل الذكي عبر SambaNova Cloud
+# 5. التحليل الذكي عبر Groq Cloud
 # ==========================================
 def _read_dotenv_setting(name):
-    """قراءة قيمة اختيارية من ملف .env بجوار التطبيق دون الحاجة إلى python-dotenv."""
+    """قراءة قيمة اختيارية من ملف .env بجوار التطبيق دون اعتماد إضافي."""
     env_path = os.path.join(BASE_DIR, ".env")
     try:
         with open(env_path, "r", encoding="utf-8-sig") as env_file:
@@ -258,25 +258,24 @@ def _read_dotenv_setting(name):
     return None
 
 
-def _normalize_sambanova_key(value):
-    """تنظيف أخطاء النسخ الشائعة دون تغيير قيمة المفتاح نفسها."""
+def _normalize_groq_key(value):
+    """تنظيف المسافات والاقتباسات وبادئة Bearer عند نسخ المفتاح."""
     if value is None:
         return None
     value = str(value).strip().lstrip("\ufeff")
     if len(value) >= 2 and value[0] == value[-1] and value[0] in ("\"", "'"):
         value = value[1:-1].strip()
-    # حقل API key يحتاج المفتاح فقط، لا بادئة ترويسة HTTP.
     if value.lower().startswith("bearer "):
         value = value[7:].strip()
     return value or None
 
 
-def _get_sambanova_setting(name, default=None):
-    """الأولوية: Streamlit Secrets ثم environment ثم ملف .env."""
+def _get_groq_setting(name, default=None):
+    """الأولوية: Streamlit Secrets ثم متغيرات البيئة ثم ملف .env."""
     try:
         value = st.secrets.get(name)
         if value:
-            return _normalize_sambanova_key(value) if name == "SAMBANOVA_API_KEY" else str(value).strip()
+            return _normalize_groq_key(value) if name == "GROQ_API_KEY" else str(value).strip()
     except Exception:
         pass
     value = os.environ.get(name)
@@ -284,33 +283,34 @@ def _get_sambanova_setting(name, default=None):
         value = _read_dotenv_setting(name)
     if not value:
         value = default
-    if name == "SAMBANOVA_API_KEY":
-        return _normalize_sambanova_key(value)
+    if name == "GROQ_API_KEY":
+        return _normalize_groq_key(value)
     return str(value).strip() if value else default
 
 
 def analyze_student_performance(student_name, evals, gender):
-    """تحليل تربوي عبر SambaNova وإرجاع (التحليل، خطة العمل).
+    """تحليل تربوي باللغة العربية عبر Groq وإرجاع (التحليل، خطة العمل).
 
-    لا يُرسل اسم الطفل إلى المزوّد. يلزم إعداد SAMBANOVA_API_KEY في Secrets
-    أو متغيرات البيئة. النموذج الافتراضي قابل للتغيير عبر SAMBANOVA_MODEL.
+    لا يُرسل اسم الطفل إلى المزوّد. يلزم إعداد GROQ_API_KEY في Secrets
+    أو متغيرات البيئة أو ملف .env. النموذج الافتراضي قابل للتغيير عبر GROQ_MODEL.
     """
-    api_key = _get_sambanova_setting("SAMBANOVA_API_KEY")
+    api_key = _get_groq_setting("GROQ_API_KEY")
     if not api_key:
         return (
-            "⚠️ لم يُضبط مفتاح SambaNova. أضف SAMBANOVA_API_KEY إلى "
-            "إعدادات Secrets أو متغيرات البيئة ثم أعد تشغيل التطبيق.", []
+            "⚠️ لم يُضبط مفتاح Groq. أضف GROQ_API_KEY إلى إعدادات Secrets أو "
+            "متغيرات البيئة أو ملف .env ثم أعد تشغيل التطبيق.", []
         )
 
-    model = _get_sambanova_setting("SAMBANOVA_MODEL", "gpt-oss-120b")
-    client = OpenAI(api_key=api_key, base_url="https://api.sambanova.ai/v1", timeout=45.0, max_retries=1)
+    # نموذج متعدد اللغات مناسب للتحليل العربي. قد تخضع الحسابات المجانية لحدود استخدام.
+    model = _get_groq_setting("GROQ_MODEL", "openai/gpt-oss-20b")
+    client = OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1", timeout=45.0, max_retries=1)
 
     scores = calculate_scores(evals)
     evals_text = json.dumps(evals, ensure_ascii=False)
     pronoun = "التلميذ" if gender == "ذكر" else "التلميذة"
     prompt = f"""
-أنت خبير تربوي ومستشار تعليمي متمرس في مرحلة ما قبل التمدرس.
-حلّل نتائج {pronoun} دون استخدام اسم الطفل أو أي بيانات تعريفية.
+أنت خبير تربوي ومستشار تعليمي متمرس في مرحلة ما قبل التمدرس ضمن السياق المدرسي الجزائري.
+حلّل نتائج {pronoun} دون استخدام اسم الطفل أو أي بيانات تعريفية. اكتب بالعربية الفصحى الواضحة.
 
 النسبة الأكاديمية: {scores.get('academic_percentage', 0):.1f}%
 النسبة السلوكية: {scores.get('behavioral_percentage', 0):.1f}%
@@ -321,14 +321,14 @@ def analyze_student_performance(student_name, evals, gender):
 أعد JSON صالحًا فقط يحتوي على مفتاحين:
 1. narrative: فقرة عربية مهنية ومشجعة، دقيقة وغير تشخيصية، تذكر نقاط القوة وما يحتاج إلى دعم.
 2. action_plan: قائمة من 3 خطوات عملية لولي الأمر، وكل خطوة قائمة من عنصرين: [عنوان الخطوة، التفاصيل].
-لا تخترع نتائج غير موجودة، ولا تعتبر المهارات غير المقيمة ضعفًا.
+لا تخترع نتائج غير موجودة، ولا تعتبر المهارات غير المقيمة ضعفًا، ولا تقدّم تشخيصًا طبيًا.
 """
 
     try:
         response = client.chat.completions.create(
             model=model,
             messages=[
-                {"role": "system", "content": "أنت خبير تربوي دقيق. أعد JSON صالحًا فقط دون Markdown."},
+                {"role": "system", "content": "أنت خبير تربوي دقيق. أعد JSON صالحًا فقط دون Markdown، وبالعربية الفصحى."},
                 {"role": "user", "content": prompt},
             ],
             temperature=0.3,
@@ -352,29 +352,44 @@ def analyze_student_performance(student_name, evals, gender):
                 detail = item.get("details") or item.get("التفاصيل")
                 if title and detail:
                     cleaned_plan.append([str(title), str(detail)])
+        if not cleaned_plan:
+            raise ValueError("قائمة action_plan فارغة أو غير صالحة")
         return narrative.strip(), cleaned_plan
 
     except Exception as e:
-        # رسالة مناسبة للمستخدم مع الاحتفاظ بالتفاصيل في سجل الخادم فقط.
+        # تفاصيل الخطأ تبقى في سجل الخادم، وتظهر للمستخدم رسالة مفهومة.
         error_text = str(e)
-        print(f"SambaNova API error ({type(e).__name__}): {error_text}")
+        print(f"Groq API error ({type(e).__name__}): {error_text}")
         status_code = getattr(e, "status_code", None)
-        if status_code == 402 or "402" in error_text or "Payment required" in error_text:
+        lowered = error_text.lower()
+        if status_code == 401 or "401" in error_text or "invalid_api_key" in lowered or "invalid api key" in lowered:
             return (
-                "تعذر إنشاء التحليل لأن SambaNova رفض الطلب بسبب الفوترة أو عدم توفر رصيد/صلاحية مجانية لهذا الحساب. "
-                "تغيير اسم النموذج وحده لا يضمن المجانية؛ تحقق من خطة حسابك قبل إعادة المحاولة.", []
+                "رفض Groq مفتاح API (401). أنشئ المفتاح من لوحة GroqCloud API Keys، "
+                "ثم حدّث GROQ_API_KEY في Secrets أو متغيرات البيئة أو ملف .env وأعد تشغيل التطبيق. "
+                "لا تضع بادئة Bearer داخل قيمة المفتاح.", []
             )
-        if status_code == 401 or "401" in error_text or "invalid_api_key" in error_text.lower() or "invalid api key" in error_text.lower():
+        if status_code == 402 or "402" in error_text or "payment required" in lowered or "billing" in lowered:
             return (
-                "رفضت SambaNova مفتاح API (401). تأكد أن المفتاح من لوحة SambaCloud الخاصة بـ API Keys، "
-                "وليس مفتاح OpenAI أو مفتاح SambaStudio؛ انسخه كاملًا دون مسافات أو بادئة Bearer، "
-                "ثم حدّث SAMBANOVA_API_KEY في Secrets أو متغيرات البيئة أو ملف .env وأعد تشغيل التطبيق.", []
+                "تعذر إنشاء التحليل بسبب قيد في الفوترة أو الرصيد لدى Groq. تحقق من خطة الحساب وحدود الاستخدام؛ "
+                "تغيير النموذج لا يضمن استخدامًا مجانيًا غير محدود.", []
             )
-        if status_code == 429 or "429" in error_text:
-            return "تعذر إنشاء التحليل مؤقتًا بسبب بلوغ حد الطلبات. انتظر قليلًا ثم أعد المحاولة.", []
+        if status_code == 429 or "429" in error_text or "rate_limit" in lowered or "rate limit" in lowered or "quota" in lowered:
+            return (
+                "وصل التحليل إلى حد الاستخدام المتاح في Groq. انتظر حتى تتجدد الحصة، أو راجع حدود الاستخدام في حسابك. "
+                "لم يغيّر التطبيق المفتاح أو يعاود إرسال الطلب بلا نهاية.", []
+            )
+        if status_code == 404 or "model_not_found" in lowered or "model not found" in lowered:
+            return (
+                f"لم يقبل Groq اسم النموذج ({model}). راجع قائمة النماذج المتاحة في حسابك، "
+                "ثم اضبط GROQ_MODEL على اسم نموذج نشط.", []
+            )
+        if status_code == 400 and ("json" in lowered or "response_format" in lowered):
+            return (
+                "رفض النموذج تنسيق JSON المطلوب. جرّب نموذجًا آخر يدعم JSON Mode أو راجع إعدادات النموذج.", []
+            )
         if isinstance(e, (json.JSONDecodeError, ValueError)):
-            return "وصل رد من مزوّد الذكاء الاصطناعي لكن بنيته غير صالحة. أعد المحاولة لاحقًا.", []
-        return "تعذر الاتصال بـ SambaNova أو إكمال التحليل. تحقق من الإنترنت وإعدادات المزوّد ثم أعد المحاولة.", []
+            return "وصل رد من Groq لكن بنيته غير صالحة للتحليل التربوي. أعد المحاولة لاحقًا.", []
+        return "تعذر الاتصال بـ Groq أو إكمال التحليل. تحقق من الإنترنت وإعدادات المزوّد ثم أعد المحاولة.", []
 
 # ==========================================
 # 6. توليد التقارير النصية 

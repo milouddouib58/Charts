@@ -235,93 +235,102 @@ def calculate_scores(evals):
     return result
 
 # ==========================================
-# 5. التحليل الذكي عبر Cerebras
+# 5. التحليل الذكي عبر SambaNova Cloud
 # ==========================================
+def _get_sambanova_setting(name, default=None):
+    """قراءة الإعداد من Streamlit Secrets أو متغيرات البيئة دون كشف المفتاح."""
+    try:
+        value = st.secrets.get(name)
+        if value:
+            return str(value).strip()
+    except Exception:
+        pass
+    value = os.environ.get(name, default)
+    return str(value).strip() if value else default
+
+
 def analyze_student_performance(student_name, evals, gender):
+    """تحليل تربوي عبر SambaNova وإرجاع (التحليل، خطة العمل).
+
+    لا يُرسل اسم الطفل إلى المزوّد. يلزم إعداد SAMBANOVA_API_KEY في Secrets
+    أو متغيرات البيئة. النموذج الافتراضي قابل للتغيير عبر SAMBANOVA_MODEL.
     """
-    تحليل بيانات التلميذ باستخدام ذكاء Cerebras 
-    لإرجاع تقرير سردي وخطة عمل مقترحة.
-    """
-    # التحقق من وجود مفتاح API
-    try:
-        api_key = st.secrets["CEREBRAS_API_KEY"]
-    except KeyError:
-        return "⚠️ تنبيه: لم يتم العثور على مفتاح Cerebras في إعدادات الأمان (Secrets).", []
-
-    # إعداد عميل الاتصال
-    client = OpenAI(
-        api_key=api_key,
-        base_url="https://api.cerebras.ai/v1",
-    )
-
-    # حساب الدرجات لتزويد الذكاء الاصطناعي بها
-    scores = calculate_scores(evals)
-    
-    # تجهيز النص المساعد
-    evals_text = json.dumps(evals, ensure_ascii=False)
-    pronoun = "التلميذ" if gender == "ذكر" else "التلميذة"
-
-    # صياغة الأوامر (Prompt)
-    prompt = f"""
-    أنت خبير تربوي ومستشار تعليمي متمرس.
-    قم بتحليل نتائج {pronoun} دون استخدام اسم الطفل أو أي بيانات تعريفية.
-    
-    النسبة الأكاديمية: {scores['academic_percentage']:.1f}%
-    النسبة السلوكية: {scores['behavioral_percentage']:.1f}%
-    
-    تفاصيل التقييمات (0=غير مكتسب، 1=في طريق الاكتساب، 2=مكتسب):
-    {evals_text}
-
-    المطلوب إرجاع الرد بصيغة JSON حصرياً يحتوي على مفتاحين فقط:
-    1. "narrative": فقرة واحدة (حوالي 4-6 أسطر) مكتوبة بلغة عربية سليمة، احترافية، ومهنية تلخص مستوى {pronoun} الأكاديمي والسلوكي بشكل مشجع ودقيق، مع ذكر نقاط القوة والنقاط التي تحتاج إلى تحسين.
-    2. "action_plan": قائمة (List) تحتوي على 3 نصائح أو خطوات عملية مقترحة لولي الأمر لتحسين أداء {pronoun}. كل خطوة عبارة عن قائمة فرعية من عنصرين ["عنوان الخطوة", "التفاصيل الدقيقة"].
-
-    ملاحظة هامة: يجب أن يكون الرد عبارة عن كود JSON فقط ولا تضف أي نص قبله أو بعده.
-    """
-
-    try:
-        # استدعاء نموذج llama3.1-70b من Cerebras
-        response = client.chat.completions.create(
-            model="gpt-oss-120b", 
-            messages=[
-                {"role": "system", "content": "أنت خبير تربوي دقيق. استجابتك يجب أن تكون بصيغة JSON صحيحة 100% فقط."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.7,
-            max_tokens=1000
+    api_key = _get_sambanova_setting("SAMBANOVA_API_KEY")
+    if not api_key:
+        return (
+            "⚠️ لم يُضبط مفتاح SambaNova. أضف SAMBANOVA_API_KEY إلى "
+            "إعدادات Secrets أو متغيرات البيئة ثم أعد تشغيل التطبيق.", []
         )
 
-        result_text = response.choices[0].message.content.strip()
-        
-        # إزالة علامات Markdown إذا أضافها النموذج
-        if result_text.startswith("```json"):
-            result_text = result_text.replace("```json", "", 1)
-        if result_text.endswith("```"):
-            result_text = result_text.rpartition("```")[0]
-            
-        # استخراج JSON بذكاء وتجاهل أي نص إضافي
-        start_idx = result_text.find('{')
-        end_idx = result_text.rfind('}')
-        
-        if start_idx != -1 and end_idx != -1 and end_idx >= start_idx:
-            clean_json_str = result_text[start_idx:end_idx+1]
-        else:
-            clean_json_str = result_text # محاولة قراءة النص كاملاً كخطة بديلة
-            
-        # تحويل النص إلى قاموس بايثون
-        parsed_data = json.loads(clean_json_str)
-        
-        narrative = parsed_data.get("narrative", "تعذر توليد التحليل التربوي بشكل صحيح.")
-        action_plan = parsed_data.get("action_plan", [])
-        
-        return narrative, action_plan
+    model = _get_sambanova_setting("SAMBANOVA_MODEL", "gpt-oss-120b")
+    client = OpenAI(api_key=api_key, base_url="https://api.sambanova.ai/v1", timeout=45.0, max_retries=1)
 
-    except json.JSONDecodeError as e:
-        print(f"JSON Parsing Error: {e} \nResponse was: {result_text}")
-        return "عذراً، قام الذكاء الاصطناعي بتوليد نص غير متوافق مع الهيكل المطلوب. يرجى المحاولة مرة أخرى.", []
+    scores = calculate_scores(evals)
+    evals_text = json.dumps(evals, ensure_ascii=False)
+    pronoun = "التلميذ" if gender == "ذكر" else "التلميذة"
+    prompt = f"""
+أنت خبير تربوي ومستشار تعليمي متمرس في مرحلة ما قبل التمدرس.
+حلّل نتائج {pronoun} دون استخدام اسم الطفل أو أي بيانات تعريفية.
+
+النسبة الأكاديمية: {scores.get('academic_percentage', 0):.1f}%
+النسبة السلوكية: {scores.get('behavioral_percentage', 0):.1f}%
+
+تفاصيل التقييمات (0=غير مكتسب، 1=في طريق الاكتساب، 2=مكتسب):
+{evals_text}
+
+أعد JSON صالحًا فقط يحتوي على مفتاحين:
+1. narrative: فقرة عربية مهنية ومشجعة، دقيقة وغير تشخيصية، تذكر نقاط القوة وما يحتاج إلى دعم.
+2. action_plan: قائمة من 3 خطوات عملية لولي الأمر، وكل خطوة قائمة من عنصرين: [عنوان الخطوة، التفاصيل].
+لا تخترع نتائج غير موجودة، ولا تعتبر المهارات غير المقيمة ضعفًا.
+"""
+
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": "أنت خبير تربوي دقيق. أعد JSON صالحًا فقط دون Markdown."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.3,
+            max_tokens=1000,
+            response_format={"type": "json_object"},
+        )
+        result_text = (response.choices[0].message.content or "").strip()
+        parsed_data = json.loads(result_text)
+        narrative = parsed_data.get("narrative")
+        action_plan = parsed_data.get("action_plan")
+        if not isinstance(narrative, str) or not narrative.strip():
+            raise ValueError("حقل narrative مفقود أو غير صالح")
+        if not isinstance(action_plan, list):
+            raise ValueError("حقل action_plan ليس قائمة")
+        cleaned_plan = []
+        for item in action_plan[:3]:
+            if isinstance(item, (list, tuple)) and len(item) >= 2:
+                cleaned_plan.append([str(item[0]), str(item[1])])
+            elif isinstance(item, dict):
+                title = item.get("title") or item.get("عنوان")
+                detail = item.get("details") or item.get("التفاصيل")
+                if title and detail:
+                    cleaned_plan.append([str(title), str(detail)])
+        return narrative.strip(), cleaned_plan
+
     except Exception as e:
-        print(f"API Error: {e}")
-        return f"حدث خطأ أثناء الاتصال بمزود الذكاء الاصطناعي: {str(e)}", []
+        # رسالة مناسبة للمستخدم مع الاحتفاظ بالتفاصيل في سجل الخادم فقط.
+        error_text = str(e)
+        print(f"SambaNova API error ({type(e).__name__}): {error_text}")
+        status_code = getattr(e, "status_code", None)
+        if status_code == 402 or "402" in error_text or "Payment required" in error_text:
+            return (
+                "تعذر إنشاء التحليل لأن SambaNova رفض الطلب بسبب الفوترة أو عدم توفر رصيد/صلاحية مجانية لهذا الحساب. "
+                "تغيير اسم النموذج وحده لا يضمن المجانية؛ تحقق من خطة حسابك قبل إعادة المحاولة.", []
+            )
+        if status_code == 401 or "401" in error_text:
+            return "تعذر الاتصال بـ SambaNova: مفتاح API غير صالح أو غير مقبول. تحقق من SAMBANOVA_API_KEY.", []
+        if status_code == 429 or "429" in error_text:
+            return "تعذر إنشاء التحليل مؤقتًا بسبب بلوغ حد الطلبات. انتظر قليلًا ثم أعد المحاولة.", []
+        if isinstance(e, (json.JSONDecodeError, ValueError)):
+            return "وصل رد من مزوّد الذكاء الاصطناعي لكن بنيته غير صالحة. أعد المحاولة لاحقًا.", []
+        return "تعذر الاتصال بـ SambaNova أو إكمال التحليل. تحقق من الإنترنت وإعدادات المزوّد ثم أعد المحاولة.", []
 
 # ==========================================
 # 6. توليد التقارير النصية 

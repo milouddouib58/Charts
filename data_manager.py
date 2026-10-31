@@ -325,17 +325,42 @@ def analyze_student_performance(student_name, evals, gender):
 """
 
     try:
-        response = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": "أنت خبير تربوي دقيق. أعد JSON صالحًا فقط دون Markdown، وبالعربية الفصحى."},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.3,
-            max_tokens=1000,
-            response_format={"type": "json_object"},
-        )
+        messages = [
+            {"role": "system", "content": "أنت خبير تربوي دقيق. أعد كائن JSON صالحًا فقط دون Markdown، وبالعربية الفصحى. يجب أن يحتوي على narrative كنص و action_plan كقائمة."},
+            {"role": "user", "content": prompt},
+        ]
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=0.3,
+                max_tokens=1200,
+                response_format={"type": "json_object"},
+            )
+        except Exception as request_error:
+            # بعض أسماء النماذج أو إصدارات الواجهة قد ترفض response_format.
+            # نعيد الطلب مرة واحدة دون هذا الخيار، مع تعليمات JSON صريحة في الرسائل.
+            request_status = getattr(request_error, "status_code", None)
+            request_text = str(request_error).lower()
+            json_mode_rejected = (
+                request_status == 400
+                and ("response_format" in request_text or "json" in request_text or "unsupported" in request_text)
+            )
+            if not json_mode_rejected:
+                raise
+            response = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=0.2,
+                max_tokens=1200,
+            )
+
         result_text = (response.choices[0].message.content or "").strip()
+        # إزالة علامات Markdown إن أضافها النموذج رغم التعليمات.
+        if result_text.startswith("```"):
+            result_text = result_text.split("\n", 1)[-1]
+            if result_text.rstrip().endswith("```"):
+                result_text = result_text.rstrip()[:-3].strip()
         parsed_data = json.loads(result_text)
         narrative = parsed_data.get("narrative")
         action_plan = parsed_data.get("action_plan")

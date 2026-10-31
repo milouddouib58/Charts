@@ -237,15 +237,55 @@ def calculate_scores(evals):
 # ==========================================
 # 5. التحليل الذكي عبر SambaNova Cloud
 # ==========================================
+def _read_dotenv_setting(name):
+    """قراءة قيمة اختيارية من ملف .env بجوار التطبيق دون الحاجة إلى python-dotenv."""
+    env_path = os.path.join(BASE_DIR, ".env")
+    try:
+        with open(env_path, "r", encoding="utf-8-sig") as env_file:
+            for raw_line in env_file:
+                line = raw_line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                if key.strip() != name:
+                    continue
+                value = value.strip()
+                if len(value) >= 2 and value[0] == value[-1] and value[0] in ("\"", "'"):
+                    value = value[1:-1]
+                return value.strip()
+    except (OSError, UnicodeError):
+        pass
+    return None
+
+
+def _normalize_sambanova_key(value):
+    """تنظيف أخطاء النسخ الشائعة دون تغيير قيمة المفتاح نفسها."""
+    if value is None:
+        return None
+    value = str(value).strip().lstrip("\ufeff")
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in ("\"", "'"):
+        value = value[1:-1].strip()
+    # حقل API key يحتاج المفتاح فقط، لا بادئة ترويسة HTTP.
+    if value.lower().startswith("bearer "):
+        value = value[7:].strip()
+    return value or None
+
+
 def _get_sambanova_setting(name, default=None):
-    """قراءة الإعداد من Streamlit Secrets أو متغيرات البيئة دون كشف المفتاح."""
+    """الأولوية: Streamlit Secrets ثم environment ثم ملف .env."""
     try:
         value = st.secrets.get(name)
         if value:
-            return str(value).strip()
+            return _normalize_sambanova_key(value) if name == "SAMBANOVA_API_KEY" else str(value).strip()
     except Exception:
         pass
-    value = os.environ.get(name, default)
+    value = os.environ.get(name)
+    if not value:
+        value = _read_dotenv_setting(name)
+    if not value:
+        value = default
+    if name == "SAMBANOVA_API_KEY":
+        return _normalize_sambanova_key(value)
     return str(value).strip() if value else default
 
 
@@ -324,8 +364,12 @@ def analyze_student_performance(student_name, evals, gender):
                 "تعذر إنشاء التحليل لأن SambaNova رفض الطلب بسبب الفوترة أو عدم توفر رصيد/صلاحية مجانية لهذا الحساب. "
                 "تغيير اسم النموذج وحده لا يضمن المجانية؛ تحقق من خطة حسابك قبل إعادة المحاولة.", []
             )
-        if status_code == 401 or "401" in error_text:
-            return "تعذر الاتصال بـ SambaNova: مفتاح API غير صالح أو غير مقبول. تحقق من SAMBANOVA_API_KEY.", []
+        if status_code == 401 or "401" in error_text or "invalid_api_key" in error_text.lower() or "invalid api key" in error_text.lower():
+            return (
+                "رفضت SambaNova مفتاح API (401). تأكد أن المفتاح من لوحة SambaCloud الخاصة بـ API Keys، "
+                "وليس مفتاح OpenAI أو مفتاح SambaStudio؛ انسخه كاملًا دون مسافات أو بادئة Bearer، "
+                "ثم حدّث SAMBANOVA_API_KEY في Secrets أو متغيرات البيئة أو ملف .env وأعد تشغيل التطبيق.", []
+            )
         if status_code == 429 or "429" in error_text:
             return "تعذر إنشاء التحليل مؤقتًا بسبب بلوغ حد الطلبات. انتظر قليلًا ثم أعد المحاولة.", []
         if isinstance(e, (json.JSONDecodeError, ValueError)):
